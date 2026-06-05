@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+*.egg
+
+# Node.js / Frontend
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Electron
+frontend/dist-electron/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (keep directory, ignore db)
+data/simulagent.db
+data/vectors/*.db
+
+# Logs
+*.log
+
+# Testing
+coverage/
+.pytest_cache/
+htmlcov/

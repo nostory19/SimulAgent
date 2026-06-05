@@ -27,13 +27,13 @@
 **目标**: 创建项目骨架，安装所有依赖，确保 conda 环境可运行
 
 - [x] T001 创建项目目录结构（backend/src/capture/, backend/src/asr/, backend/src/agents/, backend/src/models/, backend/src/api/routes/, frontend/src/components/, frontend/src/hooks/, frontend/src/services/, frontend/electron/, data/），参考 plan.md 中的 Source Code 树
-- [ ] T002 [P] 创建 conda 环境 `simulagent` 并安装 Python 3.10 后端核心依赖，写入 `backend/requirements.txt`（fastapi, uvicorn[standard], websockets, sqlalchemy, aiosqlite, pydantic, python-dotenv）
-- [ ] T003 [P] 安装 ASR 依赖，写入 `backend/requirements.txt`（funasr, onnxruntime）；安装音频采集依赖（PyAudioWPatch）
-- [ ] T004 [P] 安装 Agent 框架依赖，写入 `backend/requirements.txt`（langgraph, langchain, langchain-community）；安装向量库依赖（milvus-lite）
-- [ ] T005 [P] 安装文档解析依赖，写入 `backend/requirements.txt`（python-pptx, python-docx, pymupdf）
-- [ ] T006 [P] 初始化前端项目：在 `frontend/` 下创建 Next.js + TypeScript + Tailwind CSS 项目，安装依赖（next, react, react-dom, typescript, tailwindcss, electron, electron-builder）
-- [ ] T007 安装 Ollama 并拉取翻译模型：`ollama pull qwen3:8b-q4_K_M`（主力）和 `ollama pull qwen3:4b-q8_0`（备用）
-- [ ] T008 [P] 创建 `backend/pyproject.toml` 和 `backend/.env` 配置文件模板（HOST, PORT, ASR_MODEL, ASR_DEVICE, OLLAMA_HOST, LLM_MODEL, LLM_FALLBACK, DATABASE_URL, MILVUS_DATA_DIR）
+- [x] T002 [P] 创建 conda 环境 `simulagent` 并安装 Python 3.10 后端核心依赖，写入 `backend/requirements.txt`（fastapi, uvicorn[standard], websockets, sqlalchemy, aiosqlite, pydantic, python-dotenv）
+- [x] T003 [P] 安装 ASR 依赖，写入 `backend/requirements.txt`（funasr, onnxruntime）；安装音频采集依赖（PyAudioWPatch）
+- [x] T004 [P] 安装 Agent 框架依赖，写入 `backend/requirements.txt`（langgraph, langchain, langchain-community）；安装向量库依赖（milvus-lite）
+- [x] T005 [P] 安装文档解析依赖，写入 `backend/requirements.txt`（python-pptx, python-docx, pymupdf）
+- [x] T006 [P] 初始化前端项目：在 `frontend/` 下创建 Next.js + TypeScript + Tailwind CSS 项目，安装依赖（next, react, react-dom, typescript, tailwindcss, electron, electron-builder）
+- [x] T007 ~~安装 Ollama 并拉取翻译模型：`ollama pull qwen3:8b-q4_K_M`（主力）和 `ollama pull qwen3:4b-q8_0`（备用）~~ **SKIPPED**：改用阿里云百炼 API（OpenAI 兼容），通过 `openai` SDK + `BAILIAN_API_KEY` 环境变量调用
+- [x] T008 [P] 创建 `backend/pyproject.toml` 和 `backend/.env` 配置文件模板（HOST, PORT, ASR_MODEL, ASR_DEVICE, BAILIAN_API_KEY, BAILIAN_MODEL, DATABASE_URL, MILVUS_DATA_DIR）
 
 ---
 

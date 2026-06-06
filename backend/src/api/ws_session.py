@@ -10,6 +10,7 @@ WebSocket 会话处理器——智能同声传译模式。
 import asyncio
 import json
 import os
+import queue
 import re
 import time
 import uuid
@@ -282,14 +283,11 @@ async def handle_session(websocket: WebSocket):
                 # 选择 ASR 引擎
                 # 百炼云端实时 ASR（BAILIAN_API_KEY 可用时优先使用）
                 use_cloud_asr = True if os.getenv("BAILIAN_API_KEY") or os.getenv("DASHSCOPE_API_KEY") else False
-                cloud_queue: asyncio.Queue = asyncio.Queue()
+                cloud_queue: queue.Queue = queue.Queue()  # 线程安全队列
                 if use_cloud_asr:
                     cloud_asr = BailianRealtimeASR(source_lang=source_lang)
-                    # asyncio.Queue 非线程安全，用 call_soon_threadsafe 写入
-                    def _on_cloud_result(text: str):
-                        loop = asyncio.get_event_loop()
-                        loop.call_soon_threadsafe(cloud_queue.put_nowait, text)
-                    cloud_asr.on_result = _on_cloud_result
+                    # 跨线程回调：直接写入线程安全队列
+                    cloud_asr.on_result = lambda t: cloud_queue.put(t)
                     cloud_asr.start()
                     # 等待 task-started（最多5秒）
                     for _ in range(50):
@@ -352,16 +350,23 @@ async def handle_session(websocket: WebSocket):
 
                                 text = None
                                 if use_cloud_asr:
-                                    # 云端模式：发送音频到百炼 → 从队列读结果
+                                    # 云端模式：发送音频到百炼 + 读最新完整结果
                                     while buffer.has_chunk():
                                         chunk = buffer.get_chunk()
                                         i16 = (chunk * 32767).clip(-32768, 32767).astype(np.int16)
                                         cloud_asr.send_audio(i16)
-                                    # 检查是否有新识别结果
-                                    while not cloud_queue.empty():
-                                        text = cloud_queue.get_nowait()
+                                    # 取队列中最后一个（最完整的）结果
+                                    text = None
+                                    while True:
+                                        try:
+                                            t = cloud_queue.get_nowait()
+                                            if t:
+                                                text = t
+                                        except queue.Empty:
+                                            break
                                 else:
                                     # 本地模式：FunASR 处理
+                                    text = None
                                     while buffer.has_chunk():
                                         chunk = buffer.get_chunk()
                                         text = local_asr.process_chunk(chunk, is_final=False)
@@ -544,13 +549,16 @@ async def handle_session(websocket: WebSocket):
                 # 停止 ASR 并获取最后缓冲的文本
                 if use_cloud_asr:
                     cloud_asr.stop()
-                    # 读队列中剩余结果
-                    last_text = ""
-                    while not cloud_queue.empty():
-                        t = cloud_queue.get_nowait()
-                        if t:
-                            last_text = t
-                    final_text = last_text or None
+                    # 取队列中最后的结果
+                    last_text = None
+                    while True:
+                        try:
+                            t = cloud_queue.get_nowait()
+                            if t:
+                                last_text = t
+                        except queue.Empty:
+                            break
+                    final_text = last_text
                 else:
                     final_text = local_asr.finalize()
                     if final_text:

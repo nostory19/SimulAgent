@@ -383,6 +383,8 @@ async def handle_session(websocket: WebSocket):
                                                     "id": entry_id,
                                                     "source_text": full_source,
                                                     "translated_text": full_translation,
+                                                    "segment_source": to_translate,
+                                                    "segment_translation": translation,
                                                     "is_revised": False,
                                                 }
                                             })
@@ -472,6 +474,8 @@ async def handle_session(websocket: WebSocket):
                                                     "id": str(uuid.uuid4()),
                                                     "source_text": full_source,
                                                     "translated_text": full_translation,
+                                                    "segment_source": to_translate,
+                                                    "segment_translation": translation,
                                                     "is_revised": False,
                                                 }
                                             })

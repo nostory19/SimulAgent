@@ -54,9 +54,14 @@ export function ControlPanel() {
     bcRef.current?.postMessage({ type: 'settings', displayMode, fontSize, opacity });
   }, [displayMode, fontSize, opacity]);
 
-  /** 打开浮动字幕弹窗 */
+  /** 打开悬浮字幕条 */
   const openPopup = () => {
-    window.open('/popup', 'simulagent-popup', 'width=500,height=300,top=100,left=100');
+    const w = screen.width;
+    window.open(
+      '/popup',
+      'simulagent-popup',
+      `width=${w},height=160,top=${screen.height - 200},left=0,resizable=yes`
+    );
   };
 
   /** 处理服务端所有 WebSocket 消息 */
@@ -94,8 +99,19 @@ export function ControlPanel() {
           },
         ]);
         break;
-      // 字幕条目确认
+      // 字幕条目确认 → 存分段数据供弹窗
       case 'subtitle_entry':
+        setSubtitles((prev) => [
+          ...prev.slice(-49),
+          {
+            id: msg.entry.id,
+            sequence_number: prev.length + 1,
+            source_text: (msg.entry as any).segment_source || msg.entry.source_text || '',
+            translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
+            is_revised: msg.entry.is_revised || false,
+            timestamp_ms: Date.now(),
+          },
+        ]);
         break;
       // 修正字幕 → 更新已有条目
       case 'revision':

@@ -8,7 +8,8 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from ..config import settings
-from ..models import init_db  # 导入 models 包触发所有模型注册
+from ..models import init_db
+from ..asr.funasr_engine import get_asr_engine
 from .routes.system import router as system_router
 from .routes.session import router as session_router
 from .ws_session import handle_session
@@ -23,7 +24,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def on_startup():
-    """应用启动时初始化数据库并确保数据目录存在。"""
+    """应用启动时初始化数据库、预加载ASR模型。"""
     # 确保 data 目录存在
     data_dir = Path(__file__).parent.parent.parent.parent / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -31,6 +32,10 @@ async def on_startup():
     vectors_dir.mkdir(parents=True, exist_ok=True)
     # 初始化数据库表
     await init_db()
+    # 预加载 ASR 模型（避免首次WebSocket连接时下载模型导致超时断开）
+    import asyncio
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda: get_asr_engine(device="cpu"))
 
 # CORS 中间件：允许前端开发服务器（localhost:3000）跨域访问
 app.add_middleware(

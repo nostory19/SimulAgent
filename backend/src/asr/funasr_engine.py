@@ -98,3 +98,15 @@ class StreamingASREngine:
         if result and result[0].get("text"):
             return result[0]["text"]
         return None
+
+
+# 全局单例 ASR 引擎，避免重复加载模型
+_asr_singleton: StreamingASREngine | None = None
+
+
+def get_asr_engine(device: str = "cpu", mock: bool = False) -> StreamingASREngine:
+    """获取或创建 ASR 引擎单例。"""
+    global _asr_singleton
+    if _asr_singleton is None:
+        _asr_singleton = StreamingASREngine(device=device, mock=mock)
+    return _asr_singleton

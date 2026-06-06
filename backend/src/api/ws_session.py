@@ -15,7 +15,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
 from ..capture.system_audio import AudioCapture
 from ..asr.stream_buffer import AudioBuffer
-from ..asr.funasr_engine import StreamingASREngine
+from ..asr.funasr_engine import get_asr_engine
 
 # 翻译系统提示词
 TRANSLATION_PROMPT = """You are a professional simultaneous interpreter translating from English to Simplified Chinese.
@@ -116,7 +116,7 @@ async def handle_session(websocket: WebSocket):
                     continue
 
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
-                asr = StreamingASREngine(device="cpu")
+                asr = get_asr_engine(device="cpu")
                 running = True
 
                 await websocket.send_json({

@@ -1,9 +1,14 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ServerMessage } from '../types';
+import type { ServerMessage, AudioDevice } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
+
+interface DeviceGroup {
+  label: string;
+  devices: AudioDevice[];
+}
 
 export function TranslatePage() {
   const bcRef = useRef<BroadcastChannel | null>(null);
@@ -14,7 +19,8 @@ export function TranslatePage() {
 
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
-  const [audioSource, setAudioSource] = useState<'loopback' | 'microphone'>('loopback');
+  const [deviceGroups, setDeviceGroups] = useState<DeviceGroup[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<number>(-1);  // -1 = auto
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.75);
@@ -78,6 +84,35 @@ export function TranslatePage() {
     onMessage: handleMessage,
   });
 
+  // 获取音频设备列表
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
+    fetch(`${API}/api/v1/system/audio-devices`)
+      .then(r => r.json())
+      .then(data => {
+        const groups: DeviceGroup[] = [];
+        // 扬声器（loopback设备）
+        const loopbacks = (data.loopback_devices || []) as AudioDevice[];
+        if (loopbacks.length > 0) {
+          groups.push({ label: '扬声器（系统音频）', devices: loopbacks });
+        }
+        // 麦克风（非loopback输入设备）
+        const mics = (data.all_devices || []).filter((d: AudioDevice) => {
+          const name = d.name.toLowerCase();
+          return !name.includes('loopback') && d.max_input_channels > 0;
+        });
+        if (mics.length > 0) {
+          groups.push({ label: '麦克风', devices: mics });
+        }
+        setDeviceGroups(groups);
+        // 默认选中第一个loopback设备
+        if (loopbacks.length > 0 && selectedDevice < 0) {
+          setSelectedDevice(loopbacks[0].index);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (sessionActive) {
       const interval = setInterval(() => setLatency((prev) => prev + 0.1), 100);
@@ -90,8 +125,8 @@ export function TranslatePage() {
   const handleStart = useCallback(() => {
     setSubtitles([]); setAsrText(''); setPartialTranslation('');
     if (!connected) connect();
-    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: 'zh', display_mode: displayMode, audio_source: audioSource } });
-  }, [connected, connect, send, sourceLanguage, displayMode, audioSource]);
+    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: 'zh', display_mode: displayMode, device_index: selectedDevice } });
+  }, [connected, connect, send, sourceLanguage, displayMode, selectedDevice]);
 
   const handleStop = useCallback(() => {
     send({ type: 'stop_session' }); setSessionActive(false);
@@ -132,9 +167,14 @@ export function TranslatePage() {
               <option value="ja">日本語→中文</option>
               <option value="ko">한국어→中文</option>
             </select>
-            <select className={selectClass} value={audioSource} onChange={(e) => setAudioSource(e.target.value as any)}>
-              <option value="loopback">系统音频</option>
-              <option value="microphone">麦克风</option>
+            <select className={selectClass} value={selectedDevice} onChange={(e) => setSelectedDevice(Number(e.target.value))}>
+              {deviceGroups.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.devices.map((d) => (
+                    <option key={d.index} value={d.index}>{d.name}</option>
+                  ))}
+                </optgroup>
+              ))}
             </select>
             <select className={selectClass} value={displayMode} onChange={(e) => setDisplayMode(e.target.value as any)}>
               <option value="bilingual">双语</option>

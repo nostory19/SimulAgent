@@ -27,14 +27,14 @@ class AudioCapture:
     4. stop() 停止采集并释放资源
     """
 
-    def __init__(self, chunk_size: int = 4800, mode: str = "loopback"):
+    def __init__(self, chunk_size: int = 4800, device_index: int | None = None):
         """
         Args:
             chunk_size: 每帧采样数。4800帧 @ 48000Hz = 100ms。
-            mode: "loopback"（系统音频）或 "microphone"（麦克风）。
+            device_index: 指定设备编号。None=自动检测loopback。
         """
         self._chunk_size = chunk_size
-        self._mode = mode
+        self._device_index = device_index
         self._p: pyaudio.PyAudio | None = None
         self._stream: pyaudio.Stream | None = None
         self._ring_buffer = collections.deque(maxlen=500)
@@ -56,10 +56,6 @@ class AudioCapture:
     def is_running(self) -> bool:
         return self._running
 
-    @property
-    def mode(self) -> str:
-        return self._mode
-
     def start(self) -> bool:
         """
         启动音频采集。
@@ -67,11 +63,15 @@ class AudioCapture:
         Returns:
             True 表示采集已启动，False 表示未找到可用设备。
         """
-        # 根据模式选择设备
-        if self._mode == "microphone":
-            device = get_default_microphone()
+        # 指定设备编号或自动检测
+        if self._device_index is not None:
+            p = get_pyaudio()
+            device = p.get_device_info_by_index(self._device_index)
+            p.terminate()
         else:
             device = get_default_wasapi_loopback()
+            if device is None:
+                device = get_default_microphone()
 
         if device is None:
             print(f"[capture] no device found for mode={self._mode}")
@@ -81,7 +81,7 @@ class AudioCapture:
         self._p = get_pyaudio()
         channels = min(device["maxInputChannels"], 2)  # 最多2声道
 
-        print(f"[capture] mode={self._mode}, device={device['name'][:30]}, "
+        print(f"[capture] device={device['name'][:40]}, "
               f"rate={int(device['defaultSampleRate'])}, ch={channels}")
 
         self._stream = self._p.open(

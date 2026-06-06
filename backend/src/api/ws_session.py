@@ -268,9 +268,9 @@ async def handle_session(websocket: WebSocket):
                 config = msg.get("config", {})
                 source_lang = config.get("source_language", "en")
 
-                # 音频源：loopback=系统音频, microphone=麦克风
-                audio_source = config.get("audio_source", "loopback")
-                capture = AudioCapture(mode=audio_source)
+                # 音频设备：指定设备编号或自动检测（-1=auto）
+                dev_idx = config.get("device_index", -1)
+                capture = AudioCapture(device_index=dev_idx if dev_idx >= 0 else None)
                 if not capture.start():
                     await websocket.send_json({
                         "type": "error", "code": "AUDIO_CAPTURE_FAILED",
@@ -324,7 +324,7 @@ async def handle_session(websocket: WebSocket):
                         target_language="zh",
                         display_mode=config.get("display_mode", "bilingual"),
                         status="active",
-                        audio_source=audio_source,
+                        audio_source=str(dev_idx),
                         started_at=db_session_started_at,
                     )
                     db.add(db_session)

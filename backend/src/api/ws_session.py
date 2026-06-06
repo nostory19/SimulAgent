@@ -250,7 +250,9 @@ async def handle_session(websocket: WebSocket):
                 config = msg.get("config", {})
                 source_lang = config.get("source_language", "en")
 
-                capture = AudioCapture()
+                # 音频源：loopback=系统音频, microphone=麦克风
+                audio_source = config.get("audio_source", "loopback")
+                capture = AudioCapture(mode=audio_source)
                 if not capture.start():
                     await websocket.send_json({
                         "type": "error", "code": "AUDIO_CAPTURE_FAILED",

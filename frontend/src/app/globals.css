@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+:root {
+  --green: #7cbd5b;
+  --green-dark: #5a9a3a;
+  --pink: #f0a0b0;
+  --pink-dark: #d47888;
+  --bg: #fafbfc;
+  --card: #ffffff;
+  --subtitle-bg: rgba(20, 20, 22, 0.88);
+}
+
+body {
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #aaa; }

@@ -26,6 +26,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
+  // 待发送消息队列：连接建立前缓存的消息，连接成功后自动flush
+  const pendingQueue = useRef<(string | ArrayBuffer)[]>([]);
 
   /** 建立 WebSocket 连接 */
   const connect = useCallback(() => {
@@ -35,7 +37,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
 
     ws.onopen = () => {
       setConnected(true);
-      reconnectAttempts.current = 0;  // 连接成功后重置重连计数
+      reconnectAttempts.current = 0;
+      // 连接成功后发送所有缓存消息
+      while (pendingQueue.current.length > 0) {
+        const msg = pendingQueue.current.shift()!;
+        ws.send(msg);
+      }
     };
 
     ws.onmessage = (event) => {
@@ -72,17 +79,21 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     setConnected(false);
   }, []);
 
-  /** 发送 JSON 控制消息 */
+  /** 发送 JSON 控制消息（连接未就绪时自动排队） */
   const send = useCallback((msg: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
+    } else {
+      pendingQueue.current.push(JSON.stringify(msg));
     }
   }, []);
 
-  /** 发送二进制音频帧（PCM float32） */
+  /** 发送二进制音频帧（连接未就绪时自动排队） */
   const sendBinary = useCallback((data: ArrayBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(data);
+    } else {
+      pendingQueue.current.push(data);
     }
   }, []);
 

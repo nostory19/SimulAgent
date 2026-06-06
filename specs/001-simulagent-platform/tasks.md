@@ -66,16 +66,16 @@
 
 ### US1 实现任务
 
-- [ ] T019 [P] [US1] WASAPI 音频采集器：在 `backend/src/capture/system_audio.py` 中实现 AudioCapture 类，使用 PyAudioWPatch + WASAPI loopback 采集系统音频（float32, 48000Hz, 2ch），callback 模式推入 ring buffer
-- [ ] T020 [P] [US1] 音频设备管理器：在 `backend/src/capture/device_manager.py` 中实现设备枚举函数 `get_default_wasapi_loopback()` 和 `list_audio_devices()`
-- [ ] T021 [US1] 音频流缓冲区：在 `backend/src/asr/stream_buffer.py` 中实现 AudioBuffer 类（ring buffer，支持重采样 48000→16000Hz，立体声→单声道），供 ASR 引擎消费
-- [ ] T022 [US1] FunASR 流式引擎封装：在 `backend/src/asr/funasr_engine.py` 中实现 StreamingASREngine 类，加载 `paraformer-zh-streaming` 模型，封装 chunk 级 `generate()` 调用（含 cache 状态管理、is_final 刷新），返回增量文本
-- [ ] T023 [US1] 在 WebSocket handler 中实现 audio_chunk 消息处理：接收前端发送的二进制音频帧，写入 AudioBuffer，驱动 ASR 引擎，通过 WebSocket 向前端推送 `asr_partial` 和 `asr_final` 消息（参考 contracts/websocket.md）
-- [ ] T024 [US1] API 路由——音频设备列表：在 `backend/src/api/routes/system.py` 中实现 `GET /api/v1/system/audio-devices` 端点
-- [ ] T025 [US1] 前端音频采集 Hook：在 `frontend/src/hooks/useAudioCapture.ts` 中实现 useAudioCapture hook，通过 Electron IPC 或直接调用后端 WebSocket 发送音频数据，管理采集状态（idle/capturing/paused/error）
-- [ ] T026 [US1] 前端 WebSocket Hook：在 `frontend/src/hooks/useWebSocket.ts` 中实现 useWebSocket hook，管理 WebSocket 连接生命周期（自动连接、断线重连、消息解析），dispatch asr_partial/asr_final 事件
-- [ ] T027 [US1] 前端控制面板组件：在 `frontend/src/components/ControlPanel.tsx` 中实现会话控制面板（开始/暂停/停止按钮、源语言选择、状态指示器），调用 useWebSocket 和 useAudioCapture
-- [ ] T028 [US1] Electron 主进程：在 `frontend/electron/main.ts` 中创建 Electron BrowserWindow（Next.js 渲染），配置 alwaysOnTop/frame/transparent；在 `frontend/electron/preload.ts` 中暴露音频采集相关 IPC 接口
+- [x] T019 [P] [US1] WASAPI 音频采集器：在 `backend/src/capture/system_audio.py` 中实现 AudioCapture 类，使用 PyAudioWPatch + WASAPI loopback 采集系统音频（float32, 48000Hz, 2ch），callback 模式推入 ring buffer
+- [x] T020 [P] [US1] 音频设备管理器：在 `backend/src/capture/device_manager.py` 中实现设备枚举函数 `get_default_wasapi_loopback()` 和 `list_audio_devices()`
+- [x] T021 [US1] 音频流缓冲区：在 `backend/src/asr/stream_buffer.py` 中实现 AudioBuffer 类（ring buffer，支持重采样 48000→16000Hz，立体声→单声道），供 ASR 引擎消费
+- [x] T022 [US1] FunASR 流式引擎封装：在 `backend/src/asr/funasr_engine.py` 中实现 StreamingASREngine 类，加载 `paraformer-zh-streaming` 模型，封装 chunk 级 `generate()` 调用（含 cache 状态管理、is_final 刷新），返回增量文本
+- [x] T023 [US1] 在 WebSocket handler 中实现 audio_chunk 消息处理：接收前端发送的二进制音频帧，写入 AudioBuffer，驱动 ASR 引擎，通过 WebSocket 向前端推送 `asr_partial` 和 `asr_final` 消息（参考 contracts/websocket.md）
+- [x] T024 [US1] API 路由——音频设备列表：在 `backend/src/api/routes/system.py` 中实现 `GET /api/v1/system/audio-devices` 端点
+- [x] T025 [US1] 前端音频采集 Hook：在 `frontend/src/hooks/useAudioCapture.ts` 中实现 useAudioCapture hook，通过 Electron IPC 或直接调用后端 WebSocket 发送音频数据，管理采集状态（idle/capturing/paused/error）
+- [x] T026 [US1] 前端 WebSocket Hook：在 `frontend/src/hooks/useWebSocket.ts` 中实现 useWebSocket hook，管理 WebSocket 连接生命周期（自动连接、断线重连、消息解析），dispatch asr_partial/asr_final 事件
+- [x] T027 [US1] 前端控制面板组件：在 `frontend/src/components/ControlPanel.tsx` 中实现会话控制面板（开始/暂停/停止按钮、源语言选择、状态指示器），调用 useWebSocket 和 useAudioCapture
+- [x] T028 [US1] Electron 主进程：在 `frontend/electron/main.ts` 中创建 Electron BrowserWindow（Next.js 渲染），配置 alwaysOnTop/frame/transparent；在 `frontend/electron/preload.ts` 中暴露音频采集相关 IPC 接口
 
 **检查点**: US1 可独立验证——启动 Electron 应用，播放英文视频，控制面板显示实时转写文本，WebSocket 消息符合 contracts/websocket.md 中的 asr_partial/asr_final 格式
 

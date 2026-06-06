@@ -122,12 +122,10 @@ class BailianRealtimeASR:
 
         elif event == "result-generated":
             text = payload.get("output", {}).get("sentence", {}).get("text", "")
-            if text and self.on_result:
-                try:
-                    loop = asyncio.get_event_loop()
-                    asyncio.run_coroutine_threadsafe(self._async_emit(text), loop)
-                except RuntimeError:
-                    pass
+            if text:
+                print(f"[BailianASR] result: {text[:100]}{'...' if len(text) > 100 else ''}")
+                if self.on_result:
+                    self.on_result(text)
             if payload.get("usage"):
                 print(f"[BailianASR] duration: {payload['usage']['duration']}s")
 

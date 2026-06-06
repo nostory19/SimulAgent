@@ -27,7 +27,7 @@ class StreamingASREngine:
             mock: True 时使用模拟ASR（无模型依赖，用于测试），False 时加载真实模型。
         """
         self._mock = mock
-        self._chunk_size = [0, 10, 5]
+        self._chunk_size = [0, 8, 4]  # 480ms chunk + 240ms lookahead
         self._cache: dict = {}
         self._sample_rate = 16000
         self._mock_counter = 0

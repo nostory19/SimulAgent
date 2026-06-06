@@ -10,7 +10,7 @@
  * - 历史会话（SessionHistory）
  * - WebSocket 消息路由分发
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ServerMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
@@ -18,14 +18,45 @@ import { SettingsPanel } from './SettingsPanel';
 import { SessionHistory } from './SessionHistory';
 
 export function ControlPanel() {
+  // BroadcastChannel 用于同步字幕数据到弹窗
+  const bcRef = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    bcRef.current = new BroadcastChannel('simulagent_subtitles');
+    return () => bcRef.current?.close();
+  }, []);
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.85);
   const [asrText, setAsrText] = useState('');
+  const [partialTranslation, setPartialTranslation] = useState('');  // 流式翻译累积token
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([]);
   const [historyRefresh, setHistoryRefresh] = useState(0);
+
+  // 字幕变化时通过 BroadcastChannel 同步到弹窗
+  useEffect(() => {
+    bcRef.current?.postMessage({ type: 'subtitles', subtitles });
+  }, [subtitles]);
+
+  // 实时流式预览同步到弹窗
+  useEffect(() => {
+    bcRef.current?.postMessage({
+      type: 'partial',
+      source: asrText,
+      translation: partialTranslation,
+    });
+  }, [asrText, partialTranslation]);
+
+  // 设置变化时同步到弹窗
+  useEffect(() => {
+    bcRef.current?.postMessage({ type: 'settings', displayMode, fontSize, opacity });
+  }, [displayMode, fontSize, opacity]);
+
+  /** 打开浮动字幕弹窗 */
+  const openPopup = () => {
+    window.open('/popup', 'simulagent-popup', 'width=500,height=300,top=100,left=100');
+  };
 
   /** 处理服务端所有 WebSocket 消息 */
   const handleMessage = useCallback((msg: ServerMessage) => {
@@ -43,10 +74,15 @@ export function ControlPanel() {
       case 'asr_final':
         setAsrText('');
         break;
+      // 流式翻译token → 逐字累积显示
+      case 'translation_token':
+        setPartialTranslation((prev) => prev + msg.token);
+        break;
       // 翻译完成 → 添加到字幕列表
       case 'translation_complete':
+        setPartialTranslation('');
         setSubtitles((prev) => [
-          ...prev.slice(-99),  // 保留最近 100 条
+          ...prev.slice(-99),
           {
             id: msg.segment_id,
             sequence_number: prev.length + 1,
@@ -160,6 +196,13 @@ export function ControlPanel() {
         )}
       </div>
 
+      {/* 流式翻译预览（逐token显示） */}
+      {partialTranslation && (
+        <div className="bg-gray-800 rounded px-3 py-2 border border-green-700">
+          <p className="text-green-400 text-sm animate-pulse">{partialTranslation || '...'}</p>
+        </div>
+      )}
+
       {/* 实时字幕窗口 */}
       <SubtitleWindow
         subtitles={subtitles}
@@ -167,6 +210,14 @@ export function ControlPanel() {
         fontSize={fontSize}
         opacity={opacity}
       />
+
+      {/* 浮动字幕弹窗按钮 */}
+      <button
+        onClick={openPopup}
+        className="w-full bg-purple-600 hover:bg-purple-700 text-white py-1.5 px-3 rounded text-sm font-medium"
+      >
+        打开浮动字幕窗口（拖到YouTube上方）
+      </button>
 
       {/* 设置面板 */}
       <SettingsPanel

@@ -69,3 +69,27 @@ def find_loopback_devices() -> list[dict]:
     finally:
         p.terminate()
     return devices
+
+
+def get_default_microphone() -> dict | None:
+    """
+    获取系统默认麦克风输入设备。
+
+    遍历所有非loopback输入设备，返回第一个可用的麦克风。
+    """
+    p = get_pyaudio()
+    try:
+        default_input = p.get_default_input_device_info()
+        return default_input
+    except Exception:
+        # fallback: 手动查找第一个麦克风
+        for i in range(p.get_device_count()):
+            info = p.get_device_info_by_index(i)
+            name = info["name"].lower()
+            if (info["maxInputChannels"] > 0
+                    and "loopback" not in name
+                    and "output" not in name):
+                return info
+        return None
+    finally:
+        p.terminate()

@@ -1,53 +1,64 @@
 """
-WASAPI Loopback 系统音频采集器。
+音频采集器——支持系统音频（WASAPI Loopback）和麦克风双模式。
 
-使用 PyAudioWPatch 的 WASAPI loopback 功能采集系统音频输出（扬声器/耳机），
-通过 callback 模式将音频推入线程安全的 ring buffer，供下游 ASR 模块消费。
+使用 PyAudioWPatch 采集音频，通过 callback 模式将音频推入线程安全的 ring buffer，
+供下游 ASR 模块消费。
 """
 import collections
 import threading
 import numpy as np
 import pyaudiowpatch as pyaudio
-from .device_manager import get_pyaudio, get_default_wasapi_loopback
+from .device_manager import (
+    get_pyaudio, get_default_wasapi_loopback, get_default_microphone
+)
 
 
 class AudioCapture:
     """
-    系统音频采集器。
+    音频采集器——支持双模式。
+
+    mode="loopback": 采集系统音频输出（电脑播放的声音，如YouTube/会议）
+    mode="microphone": 采集麦克风输入（外部声音，如手机外放/人声）
 
     采集流程：
-    1. start() 检测默认 WASAPI loopback 设备并打开音频流
+    1. start() 检测对应设备并打开音频流
     2. PortAudio 回调线程持续将音频块推入 ring buffer
     3. 主线程通过 read()/read_all() 非阻塞地取出音频数据
     4. stop() 停止采集并释放资源
     """
 
-    def __init__(self, chunk_size: int = 4800):
+    def __init__(self, chunk_size: int = 4800, mode: str = "loopback"):
         """
         Args:
-            chunk_size: 每帧采样数。4800帧 @ 48000Hz = 100ms 延迟。
+            chunk_size: 每帧采样数。4800帧 @ 48000Hz = 100ms。
+            mode: "loopback"（系统音频）或 "microphone"（麦克风）。
         """
         self._chunk_size = chunk_size
+        self._mode = mode
         self._p: pyaudio.PyAudio | None = None
         self._stream: pyaudio.Stream | None = None
-        self._ring_buffer = collections.deque(maxlen=500)  # 约50秒容量
+        self._ring_buffer = collections.deque(maxlen=500)
         self._running = False
         self._device_info: dict | None = None
-        self._lock = threading.Lock()  # 保护 ring buffer 线程安全
+        self._lock = threading.Lock()
 
     @property
     def sample_rate(self) -> int:
-        """当前采集设备的采样率（默认48000Hz）。"""
+        """当前采集设备的采样率。"""
         return int(self._device_info["defaultSampleRate"]) if self._device_info else 48000
 
     @property
     def channels(self) -> int:
-        """当前采集设备的声道数（默认2，立体声）。"""
-        return self._device_info["maxInputChannels"] if self._device_info else 2
+        """当前采集设备的声道数。"""
+        return self._device_info["maxInputChannels"] if self._device_info else 1
 
     @property
     def is_running(self) -> bool:
         return self._running
+
+    @property
+    def mode(self) -> str:
+        return self._mode
 
     def start(self) -> bool:
         """
@@ -56,17 +67,26 @@ class AudioCapture:
         Returns:
             True 表示采集已启动，False 表示未找到可用设备。
         """
-        device = get_default_wasapi_loopback()
+        # 根据模式选择设备
+        if self._mode == "microphone":
+            device = get_default_microphone()
+        else:
+            device = get_default_wasapi_loopback()
+
         if device is None:
+            print(f"[capture] no device found for mode={self._mode}")
             return False
 
         self._device_info = device
         self._p = get_pyaudio()
+        channels = min(device["maxInputChannels"], 2)  # 最多2声道
 
-        # 打开 WASAPI loopback 流，使用 callback 模式
+        print(f"[capture] mode={self._mode}, device={device['name'][:30]}, "
+              f"rate={int(device['defaultSampleRate'])}, ch={channels}")
+
         self._stream = self._p.open(
             format=pyaudio.paFloat32,
-            channels=device["maxInputChannels"],
+            channels=channels,
             rate=int(device["defaultSampleRate"]),
             frames_per_buffer=self._chunk_size,
             input=True,

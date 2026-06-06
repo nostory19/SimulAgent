@@ -101,12 +101,12 @@ export interface ActionItem {
 export type ServerMessage =
   | { type: "connected"; session_id: string | null }
   | { type: "session_started"; session: CaptureSession }
-  | { type: "asr_partial"; segment_id: string; sequence_number: number; text: string; is_final: boolean; timestamp_ms: number }
+  | { type: "asr_partial"; segment_id?: string; sequence_number?: number; text: string; is_final?: boolean; timestamp_ms?: number }
   | { type: "asr_final"; segment_id: string; sequence_number: number; text: string; confidence: number; start_time_ms: number; end_time_ms: number }
   | { type: "translation_token"; segment_id: string; token: string; token_index: number }
   | { type: "translation_complete"; segment_id: string; translation: string; terminology_applied: TerminologyMatch[] }
   | { type: "subtitle_entry"; entry: TranslationEntry }
-  | { type: "revision"; entry_id: string; segment_id: string; sequence_number: number; old_translation: string; new_translation: string; reason: string }
+  | { type: "revision"; entry_id: string; segment_id?: string; sequence_number?: number; old_translation: string; new_translation: string; reason: string }
   | { type: "session_status"; status: string; duration_seconds: number; total_segments: number }
   | { type: "session_ended"; session_id: string; duration_seconds: number; total_segments: number; ended_at: string }
   | { type: "summary_ready"; summary_id: string; abstract: string; key_viewpoints: string[]; term_glossary: TermGlossaryItem[]; action_items: ActionItem[] }

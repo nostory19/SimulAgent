@@ -43,16 +43,16 @@
 
 **⚠️ 关键**: 此阶段必须完成，才能开始任何用户故事的实现
 
-- [ ] T009 创建 SQLAlchemy 数据库引擎和 session 管理，在 `backend/src/models/database.py` 中实现（SQLite，自动建表）
-- [ ] T010 [P] 创建 CaptureSession 数据模型，在 `backend/src/models/session.py` 中（参考 data-model.md 表1）
-- [ ] T011 [P] 创建 TranscriptionSegment 数据模型，在 `backend/src/models/transcription.py` 中（参考 data-model.md 表2）
-- [ ] T012 [P] 创建 TranslationEntry 数据模型，在 `backend/src/models/translation.py` 中（参考 data-model.md 表3，含 revision_history JSON 字段）
-- [ ] T013 [P] 创建 TerminologyEntry 数据模型，在 `backend/src/models/terminology.py` 中（参考 data-model.md 表4）
-- [ ] T014 [P] 创建 SessionSummary 数据模型，在 `backend/src/models/summary.py` 中（参考 data-model.md 表5）
-- [ ] T015 FastAPI 应用初始化：在 `backend/src/api/server.py` 中创建 FastAPI app 实例，配置 CORS 中间件，注册路由，实现 `/api/v1/health` 健康检查端点（参考 contracts/api.md）
-- [ ] T016 [P] WebSocket 连接管理器：在 `backend/src/api/ws_handler.py` 中实现 ConnectionManager 类（连接注册/注销、广播、单播），处理连接建立和断开
-- [ ] T017 [P] 环境配置管理：在 `backend/src/config.py` 中实现基于 python-dotenv 的配置类，读取 .env 文件，提供 HOST/PORT/模型路径/数据库路径等配置项
-- [ ] T018 [P] TypeScript 类型定义：在 `frontend/src/types/index.ts` 中定义与后端接口对应的 TS 类型（Session, TranscriptionSegment, TranslationEntry, WebSocket 消息类型等）
+- [x] T009 创建 SQLAlchemy 数据库引擎和 session 管理，在 `backend/src/models/database.py` 中实现（SQLite，自动建表）
+- [x] T010 [P] 创建 CaptureSession 数据模型，在 `backend/src/models/session.py` 中（参考 data-model.md 表1）
+- [x] T011 [P] 创建 TranscriptionSegment 数据模型，在 `backend/src/models/transcription.py` 中（参考 data-model.md 表2）
+- [x] T012 [P] 创建 TranslationEntry 数据模型，在 `backend/src/models/translation.py` 中（参考 data-model.md 表3，含 revision_history JSON 字段）
+- [x] T013 [P] 创建 TerminologyEntry 数据模型，在 `backend/src/models/terminology.py` 中（参考 data-model.md 表4）
+- [x] T014 [P] 创建 SessionSummary 数据模型，在 `backend/src/models/summary.py` 中（参考 data-model.md 表5）
+- [x] T015 FastAPI 应用初始化：在 `backend/src/api/server.py` 中创建 FastAPI app 实例，配置 CORS 中间件，注册路由，实现 `/api/v1/health` 健康检查端点（参考 contracts/api.md）
+- [x] T016 [P] WebSocket 连接管理器：在 `backend/src/api/ws_handler.py` 中实现 ConnectionManager 类（连接注册/注销、广播、单播），处理连接建立和断开
+- [x] T017 [P] 环境配置管理：在 `backend/src/config.py` 中实现基于 python-dotenv 的配置类，读取 .env 文件，提供 HOST/PORT/模型路径/数据库路径等配置项
+- [x] T018 [P] TypeScript 类型定义：在 `frontend/src/types/index.ts` 中定义与后端接口对应的 TS 类型（Session, TranscriptionSegment, TranslationEntry, WebSocket 消息类型等）
 
 **检查点**: 基础设施就绪——可以 `uvicorn backend.src.api.server:app --reload` 启动服务器，访问 `/api/v1/health` 返回 `{"status":"ok"}`，WebSocket 可以连接
 

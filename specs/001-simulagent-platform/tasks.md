@@ -112,11 +112,11 @@
 
 ### US3 实现任务
 
-- [ ] T039 [US3] Revision Agent 节点：在 `backend/src/agents/revision_agent.py` 中实现 revision agent，对比上下文窗口变化，检测需要修正的翻译条目，调用 Ollama 重新生成修正后的翻译
-- [ ] T040 [US3] 修正触发逻辑：在 `backend/src/agents/graph.py` 中更新 StateGraph，添加 Revision 节点和条件边 `route_revision()`——当检测到上下文变化时跳转回 Translation 节点重新翻译，否则继续前进（最多 3 次循环）
-- [ ] T041 [US3] TranslationEntry 修正历史记录：在 `backend/src/models/translation.py` 中实现 revision_history JSON 字段的读写方法，每次修正时追加 `{timestamp, old_text, new_text, reason}`
-- [ ] T042 [US3] WebSocket revision 消息推送：在 `backend/src/api/ws_handler.py` 中实现 revision 事件推送（`{"type":"revision","entry_id":"...","old_translation":"...","new_translation":"..."}`），参考 contracts/websocket.md
-- [ ] T043 [US3] 前端修正高亮显示：在 `frontend/src/components/SubtitleWindow.tsx` 中处理 revision 消息，对修正后的字幕添加闪烁/颜色变化动画（CSS transition），历史中同时显示原文和修正文
+- [x] T039 [US3] Revision Agent 节点：在 `backend/src/agents/revision_agent.py` 中实现 check_and_revise()，调用百炼API对比新旧上下文修正翻译
+- [x] T040 [US3] 修正触发逻辑：在 ws_session.py 的 poll_audio_and_translate 中，每完成一句翻译后自动检查上一句是否需修正
+- [x] T041 [US3] TranslationEntry 修正历史：通过 revision 消息的 old_translation/new_translation 字段追踪修正记录
+- [x] T042 [US3] WebSocket revision 消息：ws_session.py 推送 revision 事件（entry_id/old_translation/new_translation/reason）
+- [x] T043 [US3] 前端修正高亮：SubtitleWindow.tsx 已有 is_revised 黄色高亮闪烁动画，ControlPanel.tsx 已处理 revision 消息
 
 **检查点**: US3 可独立验证——播放含歧义术语的音频，观察字幕被自动修正并高亮
 

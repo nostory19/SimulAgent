@@ -1,4 +1,11 @@
-"""WebSocket session handler for real-time audio capture + ASR pipeline."""
+"""
+WebSocket 会话处理器。
+
+处理单个 WebSocket 连接的全生命周期：
+1. 接收会话控制消息（start/pause/resume/stop）
+2. 驱动 AudioCapture → AudioBuffer → StreamingASREngine 流水线
+3. 将 asr_partial / asr_final 结果实时推送给前端
+"""
 import asyncio
 import json
 import uuid
@@ -10,7 +17,18 @@ from ..asr.funasr_engine import StreamingASREngine
 
 
 async def handle_session(websocket: WebSocket):
-    """Handle a WebSocket connection for a real-time ASR session."""
+    """
+    处理一个 WebSocket 会话。
+
+    消息协议（参考 contracts/websocket.md）：
+    - start_session: 启动音频采集 + ASR 流水线
+    - pause_session / resume_session: 暂停/恢复
+    - stop_session: 停止会话
+
+    推送消息：
+    - asr_partial: 增量识别结果
+    - asr_final: 最终识别结果
+    """
     await websocket.accept()
     session_id = str(uuid.uuid4())
     capture: AudioCapture | None = None
@@ -19,10 +37,12 @@ async def handle_session(websocket: WebSocket):
     running = False
     poll_task: asyncio.Task | None = None
 
+    # 通知前端连接成功
     await websocket.send_json({"type": "connected", "session_id": session_id})
 
     try:
         async for raw in websocket.iter_text():
+            # 解析 JSON 消息
             try:
                 msg = json.loads(raw)
             except json.JSONDecodeError:
@@ -31,11 +51,12 @@ async def handle_session(websocket: WebSocket):
 
             msg_type = msg.get("type")
 
+            # ===== 开始采集 =====
             if msg_type == "start_session":
                 config = msg.get("config", {})
                 source_lang = config.get("source_language", "en")
 
-                # Init audio capture
+                # 初始化音频采集
                 capture = AudioCapture()
                 if not capture.start():
                     await websocket.send_json({
@@ -44,7 +65,7 @@ async def handle_session(websocket: WebSocket):
                     })
                     continue
 
-                # Init audio buffer + ASR engine
+                # 初始化音频缓冲区和 ASR 引擎
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
                 asr = StreamingASREngine(device="cpu")
 
@@ -60,13 +81,14 @@ async def handle_session(websocket: WebSocket):
                     }
                 })
 
-                # Launch polling loop to read audio chunks from capture and feed to ASR
+                # 启动异步轮询：每隔50ms从 AudioCapture 拉取音频块
                 async def poll_audio():
                     seq = 0
                     while running:
                         audio = capture.read() if capture else None
                         if audio is not None and buffer is not None:
                             buffer.feed(audio)
+                            # 当缓冲区积累了足够的音频（600ms），逐个chunk送入ASR
                             while buffer.has_chunk() and asr is not None:
                                 chunk = buffer.get_chunk()
                                 text = asr.process_chunk(chunk, is_final=False)
@@ -84,10 +106,12 @@ async def handle_session(websocket: WebSocket):
 
                 poll_task = asyncio.create_task(poll_audio())
 
+            # ===== 暂停 =====
             elif msg_type == "pause_session":
                 running = False
                 await websocket.send_json({"type": "session_status", "status": "paused"})
 
+            # ===== 恢复 =====
             elif msg_type == "resume_session":
                 if capture and not capture.is_running:
                     capture.start()
@@ -96,8 +120,10 @@ async def handle_session(websocket: WebSocket):
                 if poll_task is None or poll_task.done():
                     poll_task = asyncio.create_task(poll_audio())
 
+            # ===== 停止 =====
             elif msg_type == "stop_session":
                 running = False
+                # flush ASR 最后缓存的结果
                 if asr:
                     final = asr.finalize()
                     if final:
@@ -114,8 +140,10 @@ async def handle_session(websocket: WebSocket):
                 break
 
     except WebSocketDisconnect:
+        # 前端断开连接时静默退出
         pass
     finally:
+        # 清理资源
         running = False
         if poll_task and not poll_task.done():
             poll_task.cancel()

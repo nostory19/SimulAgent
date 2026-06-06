@@ -1,7 +1,15 @@
-/** SimulAgent TypeScript type definitions */
+/**
+ * SimulAgent 前端 TypeScript 类型定义
+ *
+ * 包含数据模型接口、WebSocket 消息联合类型和 REST API 响应类型，
+ * 与后端 Pydantic/SQLAlchemy 模型和 contracts/ 协议保持一致。
+ */
 
-// === Data Models ===
+// ============================================================
+// 数据模型（对应后端 models/*.py）
+// ============================================================
 
+/** 采集会话 */
 export interface CaptureSession {
   id: string;
   title: string | null;
@@ -18,6 +26,7 @@ export interface CaptureSession {
   updated_at: string;
 }
 
+/** 语音识别文本段 */
 export interface TranscriptionSegment {
   id: string;
   session_id: string;
@@ -30,6 +39,7 @@ export interface TranscriptionSegment {
   created_at: string;
 }
 
+/** 翻译修正记录 */
 export interface RevisionEntry {
   timestamp: string;
   old_text: string;
@@ -37,12 +47,14 @@ export interface RevisionEntry {
   reason?: string;
 }
 
+/** 术语匹配记录 */
 export interface TerminologyMatch {
   source_term: string;
   matched_translation: string;
   source_document?: string;
 }
 
+/** 翻译条目（含修正历史） */
 export interface TranslationEntry {
   id: string;
   segment_id: string;
@@ -58,6 +70,7 @@ export interface TranslationEntry {
   created_at: string;
 }
 
+/** 会话总结 */
 export interface SessionSummary {
   id: string;
   session_id: string;
@@ -80,9 +93,11 @@ export interface ActionItem {
   priority: "high" | "medium" | "low";
 }
 
-// === WebSocket Message Types ===
+// ============================================================
+// WebSocket 消息类型（参考 contracts/websocket.md）
+// ============================================================
 
-/** Server → Client messages */
+/** 服务端 → 客户端消息联合类型 */
 export type ServerMessage =
   | { type: "connected"; session_id: string | null }
   | { type: "session_started"; session: CaptureSession }
@@ -97,7 +112,7 @@ export type ServerMessage =
   | { type: "summary_ready"; summary_id: string; abstract: string; key_viewpoints: string[]; term_glossary: TermGlossaryItem[]; action_items: ActionItem[] }
   | { type: "error"; code: string; message: string; recoverable: boolean };
 
-/** Client → Server messages */
+/** 客户端 → 服务端消息联合类型 */
 export type ClientMessage =
   | { type: "start_session"; config: { source_language: string; target_language: string; display_mode: string; title?: string } }
   | { type: "stop_session" }
@@ -106,7 +121,9 @@ export type ClientMessage =
   | { type: "update_settings"; settings: Record<string, unknown> }
   | { type: "request_summary" };
 
-// === REST API Types ===
+// ============================================================
+// REST API 响应类型（参考 contracts/api.md）
+// ============================================================
 
 export interface SessionListResponse {
   sessions: CaptureSession[];
@@ -130,6 +147,7 @@ export interface HealthResponse {
   version: string;
 }
 
+/** 音频设备信息 */
 export interface AudioDevice {
   name: string;
   index: number;

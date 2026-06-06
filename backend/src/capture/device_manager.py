@@ -1,14 +1,29 @@
-"""Audio device detection and selection for WASAPI loopback capture."""
+"""
+音频设备管理器。
+
+通过 PyAudioWPatch 枚举系统中的音频输入设备和 WASAPI loopback 设备，
+用于自动检测和选择系统音频采集设备。
+"""
 import pyaudiowpatch as pyaudio
 from typing import Optional
 
 
 def get_pyaudio():
+    """创建并返回 PyAudio 实例（每次调用需手动 terminate）。"""
     return pyaudio.PyAudio()
 
 
 def get_default_wasapi_loopback() -> Optional[dict]:
-    """Get the default WASAPI loopback device for system audio capture."""
+    """
+    获取系统默认的 WASAPI loopback 设备信息。
+
+    WASAPI loopback 将扬声器/耳机输出的音频镜像为一个虚拟输入设备，
+    从而实现「采集系统正在播放的声音」。
+
+    Returns:
+        设备信息字典（含 name, index, maxInputChannels, defaultSampleRate），
+        如果未找到则返回 None。
+    """
     p = get_pyaudio()
     try:
         device = p.get_default_wasapi_loopback()
@@ -20,7 +35,7 @@ def get_default_wasapi_loopback() -> Optional[dict]:
 
 
 def list_audio_devices() -> list[dict]:
-    """List all available audio input devices (including loopback)."""
+    """枚举所有可用的音频输入设备（麦克风 + loopback 等）。"""
     p = get_pyaudio()
     devices = []
     try:
@@ -40,7 +55,7 @@ def list_audio_devices() -> list[dict]:
 
 
 def find_loopback_devices() -> list[dict]:
-    """Find all WASAPI loopback-capable devices."""
+    """筛选出所有 WASAPI loopback 类型的设备（用于采集系统音频）。"""
     p = get_pyaudio()
     devices = []
     try:

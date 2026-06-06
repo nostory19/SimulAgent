@@ -35,7 +35,7 @@ async def on_startup():
     # 预加载 ASR 模型（避免首次WebSocket连接时下载模型导致超时断开）
     import asyncio
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, lambda: get_asr_engine(device="cpu"))
+    await loop.run_in_executor(None, lambda: get_asr_engine(source_lang="en", device="cpu"))
 
 # CORS 中间件：允许前端开发服务器（localhost:3000）跨域访问
 app.add_middleware(

@@ -276,7 +276,7 @@ async def handle_session(websocket: WebSocket):
                     continue
 
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
-                asr = get_asr_engine(device="cpu")
+                asr = get_asr_engine(source_lang=source_lang, device="cpu")
                 running = True
                 # 重置会话统计和术语缓存
                 session_stats["segment_count"] = 0

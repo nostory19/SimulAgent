@@ -337,8 +337,9 @@ async def handle_session(websocket: WebSocket):
                     untranslated = ""       # 上次翻译后新增的原文
                     context_history: list[dict] = []  # 最近3句上下文
                     last_audio_time = time.time()
-                    last_text_change = time.time()    # 云端防抖：上次文本变化时间
+                    last_text_change = time.time()
                     last_entry_id = None
+                    current_translate_task: asyncio.Task | None = None  # 当前翻译任务（支持取消）
 
                     while running:
                         try:
@@ -374,12 +375,13 @@ async def handle_session(websocket: WebSocket):
 
                                 if text:
                                     if use_cloud_asr:
-                                        # 云端模式：每次返回全量文本→替换
+                                        # 云端模式：新文本到达→取消上次翻译→立即开始新翻译
                                         if text != full_source:
                                             last_text_change = time.time()
                                         full_source = text
                                         untranslated = text
-                                        should_translate = text.strip().endswith(('.', '!', '?', '。', '！', '？'))
+                                        # 新文本来了就触发翻译（cancel+restart机制避免重复）
+                                        should_translate = len(text.strip()) > 10
                                         mode_label = "cloud"
                                     else:
                                         # 本地模式：追加+断句检测
@@ -402,25 +404,24 @@ async def handle_session(websocket: WebSocket):
                                     except RuntimeError:
                                         break
 
-                                    # ===== 云端防抖：句末标点 OR 文本稳定1.5秒 =====
-                                    if use_cloud_asr and not should_translate:
-                                        # 检查是否文本已稳定一段时间
-                                        stable_time = now - last_text_change
-                                        if stable_time > 1.5 and len(untranslated.strip()) > 10:
-                                            should_translate = True
+                                    # 云端模式：文本变化即翻译，无需防抖等待
 
-                                    if should_translate and len(untranslated.strip()) > 3:
+                                    # 翻译并发控制：正在翻译中跳过（上次翻译完成后会用最新文本重新触发）
+                                    translating_now = current_translate_task and not current_translate_task.done()
+                                    if should_translate and len(untranslated.strip()) > 3 and not translating_now:
                                         to_translate = untranslated.strip()
-                                        print(f"[seg] {to_translate[:80]}... (mode={mode_label}, silence={silence:.1f}s)")
+                                        print(f"[seg] {to_translate[:80]}... (mode={mode_label})")
 
-                                        # ===== 带上下文和术语的流式翻译 =====
-                                        term_hint = _build_terminology_hint(to_translate)
-                                        if term_hint != "(none)":
-                                            print(f"[term] {term_hint[:80]}")
+                                        # 云端模式：to_translate已是全量文本，不需要注入上下文
+                                        _ctx = [] if use_cloud_asr else context_history
 
-                                        translation = await _translate_stream(
-                                            to_translate, websocket, context_history
+                                        async def do_translate(src: str, ws, ctx):
+                                            return await _translate_stream(src, ws, ctx)
+
+                                        current_translate_task = asyncio.create_task(
+                                            do_translate(to_translate, websocket, _ctx)
                                         )
+                                        translation = await current_translate_task
                                         print(f"[zh]  {translation[:80]}...")
 
                                         # ===== 更新术语缓存 =====
@@ -525,8 +526,9 @@ async def handle_session(websocket: WebSocket):
                                     to_translate = untranslated.strip()
                                     if len(to_translate) > 5:
                                         print(f"[silence] force translate: {to_translate[:60]}...")
+                                        _ctx2 = [] if use_cloud_asr else context_history
                                         translation = await _translate_stream(
-                                            to_translate, websocket, context_history
+                                            to_translate, websocket, _ctx2
                                         )
                                         if use_cloud_asr:
                                             full_translation = translation

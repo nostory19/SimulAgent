@@ -7,6 +7,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from ..config import settings
 from .routes.system import router as system_router
+from .routes.session import router as session_router
 from .ws_session import handle_session
 
 # FastAPI 应用实例
@@ -25,8 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册系统工具路由（音频设备列表等）
+# 注册 REST 路由
 app.include_router(system_router)
+app.include_router(session_router)
 
 
 @app.get("/api/v1/health")
@@ -41,6 +43,6 @@ async def websocket_endpoint(websocket: WebSocket):
     WebSocket 端点。
 
     接收前端的音频采集会话控制消息（start/pause/resume/stop），
-    驱动 ASR 流水线并将识别结果实时推送回前端。
+    驱动 ASR + 翻译流水线，将识别和翻译结果实时推送回前端。
     """
     await handle_session(websocket)

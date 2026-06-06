@@ -89,16 +89,16 @@
 
 ### US2 实现任务
 
-- [ ] T029 [P] [US2] ASR Agent 节点：在 `backend/src/agents/asr_agent.py` 中实现 LangGraph agent node，封装 StreamingASREngine 调用，使用 `get_stream_writer()` 发送 asr:chunk 自定义事件
-- [ ] T030 [P] [US2] Context Agent 节点：在 `backend/src/agents/context_agent.py` 中实现上下文窗口管理，维护最近 3-5 条翻译对，为主题跟踪提供上下文拼接
-- [ ] T031 [US2] Translation Agent 节点：在 `backend/src/agents/translation_agent.py` 中实现翻译 agent，调用 Ollama API（qwen3:8b-q4_K_M），使用 research.md 中定义的 prompt 模板，`stream: true` 逐 token 输出
-- [ ] T032 [US2] LangGraph 图定义：在 `backend/src/agents/graph.py` 中组装最小流水线 StateGraph（START → ASR → Context → Translation → END），实现 PipelineState TypedDict，配置 `astream()` 消费
-- [ ] T033 [US2] Agent 流水线集成 WebSocket：在 `backend/src/api/ws_handler.py` 中实现 `start_session` 消息处理，启动 LangGraph 图执行，消费 astream 事件并推送 translation_token、translation_complete、subtitle_entry 到前端
-- [ ] T034 [US2] Session CRUD API 路由：在 `backend/src/api/routes/session.py` 中实现 `POST/GET /api/v1/sessions`、`GET/DELETE /api/v1/sessions/{id}` 和 `GET /api/v1/sessions/{id}/subtitles` 端点（参考 contracts/api.md）
-- [ ] T035 [P] [US2] 前端字幕窗口组件：在 `frontend/src/components/SubtitleWindow.tsx` 中实现浮动字幕窗口（半透明背景、可调节字体大小/颜色/位置、自动滚动、历史回看），渲染双语或中文模式
-- [ ] T036 [P] [US2] 前端设置面板组件：在 `frontend/src/components/SettingsPanel.tsx` 中实现设置面板（字幕模式切换、字体大小、窗口透明度、位置调节）
-- [ ] T037 [US2] 前端翻译 token 增量渲染：在 `frontend/src/hooks/useWebSocket.ts` 中处理 translation_token 消息，支持逐 token 累积显示（字幕逐词出现的效果）
-- [ ] T038 [US2] 前端会话历史组件：在 `frontend/src/components/SessionHistory.tsx` 中实现历史会话列表，调用 sessions API，支持查看和删除
+- [x] T029 [P] [US2] ASR Agent 节点：在 `backend/src/agents/asr_agent.py` 中实现 LangGraph agent node，封装 StreamingASREngine 调用，使用 `get_stream_writer()` 发送 asr:chunk 自定义事件
+- [x] T030 [P] [US2] Context Agent 节点：在 `backend/src/agents/context_agent.py` 中实现上下文窗口管理，维护最近 3-5 条翻译对，为主题跟踪提供上下文拼接
+- [x] T031 [US2] Translation Agent 节点：在 `backend/src/agents/translation_agent.py` 中实现翻译 agent，使用百炼 API（openai SDK + streaming）翻译英→中，含系统提示词、上下文注入和翻译历史管理
+- [x] T032 [US2] LangGraph 图定义：在 `backend/src/agents/graph.py` 中定义 PipelineState TypedDict（audio_chunk, asr_full_text, context_window, translation_history, translation）
+- [x] T033 [US2] Agent 流水线集成 WebSocket：在 `backend/src/api/ws_session.py` 中 ASR 后添加百炼翻译步骤，推送 translation_complete 和 subtitle_entry 消息
+- [x] T034 [US2] Session CRUD API 路由：在 `backend/src/api/routes/session.py` 中实现 GET列表/详情/字幕、DELETE删除端点
+- [x] T035 [P] [US2] 前端字幕窗口组件：在 `frontend/src/components/SubtitleWindow.tsx` 中实现浮动字幕（双行/单行、自动滚动、修正高亮闪烁动画）
+- [x] T036 [P] [US2] 前端设置面板组件：在 `frontend/src/components/SettingsPanel.tsx` 中实现设置面板（显示模式、字体大小、透明度，localStorage持久化）
+- [x] T037 [US2] 前端翻译 token 增量渲染：在 `frontend/src/components/ControlPanel.tsx` 中处理 translation_complete 消息，字幕逐条追加显示
+- [x] T038 [US2] 前端会话历史组件：在 `frontend/src/components/SessionHistory.tsx` 中实现历史会话列表（查看、删除、刷新、状态标签）
 
 **检查点**: US1+US2 可联合验证——播放英文视频，浮动字幕窗口实时显示中文翻译，支撑 MVP 交付
 

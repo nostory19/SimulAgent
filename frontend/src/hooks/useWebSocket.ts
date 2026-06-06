@@ -6,7 +6,7 @@
  * 功能：
  * - 自动连接/断线重连（指数退避，最多5次）
  * - JSON 消息收发 + 二进制音频帧发送
- * - ServerMessage 类型分发回调
+ * - 连接未就绪时消息自动排队缓存
  */
 import { useRef, useState, useCallback, useEffect } from 'react';
 import type { ServerMessage, ClientMessage } from '../types';
@@ -18,15 +18,16 @@ interface UseWebSocketOptions {
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
-  // WebSocket 地址默认匹配后端 .env 中 PORT=8765，可通过 NEXT_PUBLIC_WS_URL 环境变量或 options.url 覆盖
-  const defaultUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765/ws';
+  const defaultUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8766/ws';
   const { url = defaultUrl, onMessage, autoConnect = false } = options;
   const wsRef = useRef<WebSocket | null>(null);
+  // 用 ref 存储回调，避免 connect 依赖变化导致 useEffect 重新执行关闭连接
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
-  // 待发送消息队列：连接建立前缓存的消息，连接成功后自动flush
   const pendingQueue = useRef<(string | ArrayBuffer)[]>([]);
 
   /** 建立 WebSocket 连接 */
@@ -38,7 +39,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     ws.onopen = () => {
       setConnected(true);
       reconnectAttempts.current = 0;
-      // 连接成功后发送所有缓存消息
       while (pendingQueue.current.length > 0) {
         const msg = pendingQueue.current.shift()!;
         ws.send(msg);
@@ -48,15 +48,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
-        onMessage?.(msg);  // 将解析后的消息分发给外部回调
+        onMessageRef.current?.(msg);  // 通过 ref 调用，始终指向最新回调
       } catch {
-        // 二进制帧或非法 JSON，静默忽略
+        // 二进制帧或非法 JSON
       }
     };
 
     ws.onclose = () => {
       setConnected(false);
-      // 断线自动重连：指数退避（1s, 2s, 4s, 8s, 16s），最多30s间隔
       if (reconnectAttempts.current < maxReconnectAttempts) {
         const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
         reconnectTimer.current = setTimeout(connect, delay);
@@ -67,19 +66,19 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     ws.onerror = () => {
       ws.close();
     };
-  }, [url, onMessage]);
+  }, [url]);  // 只依赖 url，不依赖 onMessage
 
   /** 断开连接并停止重连 */
   const disconnect = useCallback(() => {
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
     }
-    reconnectAttempts.current = maxReconnectAttempts;  // 阻止后续重连
+    reconnectAttempts.current = maxReconnectAttempts;
     wsRef.current?.close();
     setConnected(false);
   }, []);
 
-  /** 发送 JSON 控制消息（连接未就绪时自动排队） */
+  /** 发送 JSON 控制消息 */
   const send = useCallback((msg: ClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
@@ -88,7 +87,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
     }
   }, []);
 
-  /** 发送二进制音频帧（连接未就绪时自动排队） */
+  /** 发送二进制音频帧 */
   const sendBinary = useCallback((data: ArrayBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(data);
@@ -100,10 +99,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
   // autoConnect 模式下自动建立连接
   useEffect(() => {
     if (autoConnect) connect();
+  }, [autoConnect, connect]);
+
+  // 组件卸载时断开
+  useEffect(() => {
     return () => {
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [disconnect]);
 
   return { connected, connect, disconnect, send, sendBinary };
 }

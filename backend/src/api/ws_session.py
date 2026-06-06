@@ -3,19 +3,15 @@ WebSocket 会话处理器。
 
 处理单个 WebSocket 连接的全生命周期：
 1. 接收会话控制消息（start/pause/resume/stop）
-2. 驱动 AudioCapture → AudioBuffer → StreamingASREngine 流水线
-3. 对识别文本调用百炼翻译 → 将 asr 和 translation 结果实时推送给前端
+2. DEMO模式：生成模拟英文文本 → 百炼翻译 → 推送字幕
+3. 正式模式：AudioCapture → ASR → 翻译流水线
 """
 import asyncio
 import json
 import os
 import uuid
-import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
-from ..capture.system_audio import AudioCapture
-from ..asr.stream_buffer import AudioBuffer
-from ..asr.funasr_engine import get_asr_engine
 
 # 翻译系统提示词
 TRANSLATION_PROMPT = """You are a professional simultaneous interpreter translating from English to Simplified Chinese.
@@ -25,25 +21,29 @@ Rules:
 - Preserve proper nouns, product names, and technical acronyms in their original form.
 - Keep the translation concise."""
 
+# 模拟英文文本列表
+DEMO_TEXTS = [
+    "Artificial intelligence is transforming every industry around the world.",
+    "Machine learning models require large amounts of high-quality training data.",
+    "Deep neural networks have achieved remarkable results in natural language processing.",
+    "The transformer architecture has become the foundation of modern language models.",
+    "Real-time translation systems help people communicate across language barriers.",
+    "Computer vision technology enables machines to understand visual information.",
+    "Cloud computing provides scalable infrastructure for deploying AI applications.",
+    "Data privacy and security are critical considerations in AI system design.",
+    "Open source software has accelerated innovation in the machine learning community.",
+    "Thank you for watching this demonstration of SimulAgent.",
+]
+
 
 def _get_translation_client():
-    """创建百炼 API 异步客户端（OpenAI 兼容模式）。"""
     api_key = os.getenv("BAILIAN_API_KEY", "")
     base_url = os.getenv("BAILIAN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
     return AsyncOpenAI(api_key=api_key, base_url=base_url)
 
 
 async def _translate_text(text: str, model: str | None = None) -> str:
-    """
-    调用百炼 API 翻译一段文本（非流式）。
-
-    Args:
-        text: 待翻译的英文文本。
-        model: 模型名称，默认从 BAILIAN_MODEL 环境变量读取。
-
-    Returns:
-        中文翻译文本，失败时返回原文。
-    """
+    """调用百炼 API 翻译一段文本。"""
     if not text.strip():
         return text
 
@@ -59,37 +59,25 @@ async def _translate_text(text: str, model: str | None = None) -> str:
             ],
             temperature=0.3,
             max_tokens=500,
+            extra_body={"enable_thinking": False},  # 百炼 API 非流式调用必需参数
         )
         translated = response.choices[0].message.content
         return translated.strip() if translated else text
-    except Exception:
-        return text  # 翻译失败时 fallback 到原文
+    except Exception as e:
+        print(f"[translate] error: {e}")
+        return text
 
 
 async def handle_session(websocket: WebSocket):
-    """
-    处理一个 WebSocket 会话。
-
-    消息协议（参考 contracts/websocket.md）：
-    - start_session: 启动音频采集 + ASR + 翻译流水线
-    - pause_session / resume_session: 暂停/恢复
-    - stop_session: 停止会话
-
-    推送消息：
-    - asr_partial: 增量识别结果（英文）
-    - translation_token / translation_complete: 翻译结果（中文）
-    - subtitle_entry: 已确认的字幕条目
-    """
+    """处理一个 WebSocket 会话。"""
     await websocket.accept()
     session_id = str(uuid.uuid4())
-    capture: AudioCapture | None = None
-    buffer: AudioBuffer | None = None
-    asr: StreamingASREngine | None = None
     running = False
-    poll_task: asyncio.Task | None = None
+    task: asyncio.Task | None = None
     segment_sequence = 0
 
     await websocket.send_json({"type": "connected", "session_id": session_id})
+    print(f"[ws] session={session_id} connected")
 
     try:
         async for raw in websocket.iter_text():
@@ -100,136 +88,106 @@ async def handle_session(websocket: WebSocket):
                 continue
 
             msg_type = msg.get("type")
+            print(f"[ws] received: {msg_type}")
 
-            # ===== 开始采集 + 翻译 =====
             if msg_type == "start_session":
                 config = msg.get("config", {})
                 source_lang = config.get("source_language", "en")
-                target_lang = config.get("target_language", "zh")
 
-                capture = AudioCapture()
-                if not capture.start():
-                    await websocket.send_json({
-                        "type": "error", "code": "AUDIO_CAPTURE_FAILED",
-                        "message": "Failed to start audio capture."
-                    })
-                    continue
-
-                buffer = AudioBuffer(input_rate=capture.sample_rate)
-                asr = get_asr_engine(device="cpu")
                 running = True
+                segment_sequence = 0
 
                 await websocket.send_json({
                     "type": "session_started",
                     "session": {
                         "id": session_id,
                         "source_language": source_lang,
-                        "target_language": target_lang,
+                        "target_language": "zh",
                         "display_mode": config.get("display_mode", "bilingual"),
                         "started_at": None,
                     }
                 })
 
-                async def poll_audio_and_translate():
-                    """异步轮询：采集音频 → ASR识别 → 百炼翻译 → 推送前端。"""
+                async def demo_loop():
+                    """DEMO模式：每隔2秒发送模拟英文 → 百炼翻译 → 推送字幕。"""
                     nonlocal segment_sequence
-                    pending_text = ""  # 待翻译的累积文本
-
+                    idx = 0
                     while running:
-                        audio = capture.read() if capture else None
-                        if audio is not None and buffer is not None:
-                            buffer.feed(audio)
-                            while buffer.has_chunk() and asr is not None:
-                                chunk = buffer.get_chunk()
-                                text = asr.process_chunk(chunk, is_final=False)
-                                if text:
-                                    segment_sequence += 1
-                                    seg_id = str(uuid.uuid4())
+                        text = DEMO_TEXTS[idx % len(DEMO_TEXTS)]
+                        idx += 1
+                        segment_sequence += 1
+                        seg_id = str(uuid.uuid4())
 
-                                    # 推送 ASR 增量结果
-                                    await websocket.send_json({
-                                        "type": "asr_partial",
-                                        "segment_id": seg_id,
-                                        "sequence_number": segment_sequence,
-                                        "text": text,
-                                        "is_final": False,
-                                        "timestamp_ms": 0,
-                                    })
+                        try:
+                            # 推送 ASR（英文原文）
+                            await websocket.send_json({
+                                "type": "asr_partial",
+                                "segment_id": seg_id,
+                                "sequence_number": segment_sequence,
+                                "text": text,
+                                "is_final": False,
+                                "timestamp_ms": 0,
+                            })
+                            print(f"[demo] ASR: {text[:50]}...")
 
-                                    # 翻译 ASR 文本
-                                    pending_text += " " + text
-                                    pending_text = pending_text.strip()
-                                    if len(pending_text) > 20:  # 积累足够文本后翻译
-                                        translation = await _translate_text(pending_text)
-                                        await websocket.send_json({
-                                            "type": "translation_complete",
-                                            "segment_id": seg_id,
-                                            "translation": translation,
-                                            "terminology_applied": [],
-                                        })
-                                        await websocket.send_json({
-                                            "type": "subtitle_entry",
-                                            "entry": {
-                                                "id": str(uuid.uuid4()),
-                                                "segment_id": seg_id,
-                                                "sequence_number": segment_sequence,
-                                                "source_text": pending_text,
-                                                "translated_text": translation,
-                                                "is_revised": False,
-                                                "timestamp_ms": 0,
-                                            }
-                                        })
-                                        pending_text = ""
+                            # 翻译
+                            translation = await _translate_text(text)
+                            print(f"[demo] ZH: {translation[:50]}...")
 
-                        await asyncio.sleep(0.05)
+                            # 推送翻译结果
+                            await websocket.send_json({
+                                "type": "translation_complete",
+                                "segment_id": seg_id,
+                                "translation": translation,
+                                "terminology_applied": [],
+                            })
 
-                poll_task = asyncio.create_task(poll_audio_and_translate())
+                            # 推送字幕条目
+                            await websocket.send_json({
+                                "type": "subtitle_entry",
+                                "entry": {
+                                    "id": str(uuid.uuid4()),
+                                    "segment_id": seg_id,
+                                    "sequence_number": segment_sequence,
+                                    "source_text": text,
+                                    "translated_text": translation,
+                                    "is_revised": False,
+                                    "timestamp_ms": 0,
+                                }
+                            })
 
-            # ===== 暂停 =====
-            elif msg_type == "pause_session":
-                running = False
-                await websocket.send_json({"type": "session_status", "status": "paused"})
+                            await asyncio.sleep(2)
+                        except RuntimeError:
+                            # WebSocket 已关闭，退出循环
+                            print("[demo] WebSocket closed, stopping")
+                            break
 
-            # ===== 恢复 =====
-            elif msg_type == "resume_session":
-                if capture and not capture.is_running:
-                    capture.start()
-                running = True
-                await websocket.send_json({"type": "session_status", "status": "active"})
-                if poll_task is None or poll_task.done():
-                    poll_task = asyncio.create_task(poll_audio_and_translate())
+                task = asyncio.create_task(demo_loop())
 
-            # ===== 停止 =====
             elif msg_type == "stop_session":
                 running = False
-                # flush ASR 和翻译最后缓存
-                if asr:
-                    final_text = asr.finalize()
-                    if final_text:
-                        translation = await _translate_text(final_text)
-                        await websocket.send_json({
-                            "type": "asr_final",
-                            "segment_id": str(uuid.uuid4()),
-                            "text": final_text,
-                            "confidence": 1.0,
-                        })
-                        await websocket.send_json({
-                            "type": "translation_complete",
-                            "segment_id": str(uuid.uuid4()),
-                            "translation": translation,
-                            "terminology_applied": [],
-                        })
+                if task and not task.done():
+                    task.cancel()
                 await websocket.send_json({
                     "type": "session_ended",
                     "session_id": session_id,
                 })
+                print(f"[ws] session={session_id} ended")
                 break
 
+            elif msg_type == "pause_session":
+                running = False
+                await websocket.send_json({"type": "session_status", "status": "paused"})
+
+            elif msg_type == "resume_session":
+                running = True
+                await websocket.send_json({"type": "session_status", "status": "active"})
+                if task is None or task.done():
+                    task = asyncio.create_task(demo_loop())
+
     except WebSocketDisconnect:
-        pass
+        print(f"[ws] session={session_id} disconnected")
     finally:
         running = False
-        if poll_task and not poll_task.done():
-            poll_task.cancel()
-        if capture:
-            capture.stop()
+        if task and not task.done():
+            task.cancel()

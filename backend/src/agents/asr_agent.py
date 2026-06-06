@@ -15,11 +15,11 @@ from .graph import PipelineState
 _asr_engine: StreamingASREngine | None = None
 
 
-def _get_asr_engine(device: str = "cpu") -> StreamingASREngine:
+def _get_asr_engine(source_lang: str = "en", device: str = "cpu") -> StreamingASREngine:
     """获取或初始化 ASR 引擎单例。"""
     global _asr_engine
     if _asr_engine is None:
-        _asr_engine = StreamingASREngine(device=device)
+        _asr_engine = StreamingASREngine(source_lang=source_lang, device=device)
     return _asr_engine
 
 

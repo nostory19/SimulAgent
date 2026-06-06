@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     BAILIAN_MODEL: str = "qwen3-8b"
 
     # ========== 本地 ASR（FunASR） ==========
-    ASR_MODEL: str = "paraformer-zh-streaming"
+    ASR_MODEL: str = "CTTransformerStreaming"
     ASR_DEVICE: str = "cpu"
 
     # ========== 存储路径 ==========

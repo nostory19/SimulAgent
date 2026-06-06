@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from ..config import settings
-from ..models.database import init_db
+from ..models import init_db  # 导入 models 包触发所有模型注册
 from .routes.system import router as system_router
 from .routes.session import router as session_router
 from .ws_session import handle_session

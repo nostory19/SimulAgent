@@ -19,7 +19,7 @@ interface SessionHistoryProps {
 }
 
 // API 基础地址，可通过 NEXT_PUBLIC_API_URL 环境变量覆盖
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
 
 export function SessionHistory({ onSelectSession, refreshTrigger }: SessionHistoryProps) {
   const [sessions, setSessions] = useState<CaptureSession[]>([]);

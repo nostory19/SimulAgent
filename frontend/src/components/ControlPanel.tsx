@@ -47,13 +47,32 @@ export function ControlPanel() {
         }]);
         break;
       case 'subtitle_entry':
-        setSubtitles((prev) => [...prev.slice(-49), {
-          id: msg.entry.id, sequence_number: prev.length + 1,
-          source_text: (msg.entry as any).segment_source || msg.entry.source_text || '',
-          translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
-          is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now(),
-        }]);
-        break;
+      {
+        const newSource = (msg.entry as any).segment_source || msg.entry.source_text || '';
+        // 去重：如果新条目的原文包含上一条的原文，替换上一条（云端模式正常行为）
+        setSubtitles((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && newSource && newSource.includes(last.source_text)) {
+            // 替换最后一条（新翻译更完整）
+            const updated = [...prev.slice(0, -1), {
+              id: msg.entry.id,
+              sequence_number: prev.length,
+              source_text: newSource,
+              translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
+              is_revised: msg.entry.is_revised || false,
+              timestamp_ms: Date.now(),
+            }];
+            return updated;
+          }
+          return [...prev.slice(-9), {
+            id: msg.entry.id, sequence_number: prev.length + 1,
+            source_text: (msg.entry as any).segment_source || msg.entry.source_text || '',
+            translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
+            is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now(),
+          }]);
+        });
+      }
+      break;
       case 'revision':
         setSubtitles((prev) => prev.map((s) =>
           s.id === msg.entry_id ? { ...s, translated_text: msg.new_translation, is_revised: true } : s));
@@ -71,12 +90,17 @@ export function ControlPanel() {
   });
 
   const handleStart = useCallback(() => {
+    // 新会话前立即清屏，避免上次残留
+    setSubtitles([]); setAsrText(''); setPartialTranslation('');
+    setSummary(null); setCurrentSessionId(null);
     if (!connected) connect();
     send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: 'zh', display_mode: displayMode, audio_source: audioSource } });
   }, [connected, connect, send, sourceLanguage, displayMode, audioSource]);
 
   const handleStop = useCallback(() => {
-    send({ type: 'stop_session' }); setSessionActive(false);
+    send({ type: 'stop_session' });
+    setSessionActive(false);
+    // 保留当前 subtitles 和 currentSessionId，供查看和生成总结
   }, [send]);
 
   const openPopup = () => {

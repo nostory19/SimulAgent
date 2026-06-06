@@ -3,13 +3,10 @@ FastAPI 应用入口。
 
 创建 FastAPI 实例，配置 CORS 中间件，注册 REST 路由和 WebSocket 端点。
 """
-import os
 from pathlib import Path
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from ..config import settings
 from ..models import init_db
-from ..asr.funasr_engine import get_asr_engine
 from .routes.system import router as system_router
 from .routes.session import router as session_router
 from .ws_session import handle_session
@@ -32,10 +29,7 @@ async def on_startup():
     vectors_dir.mkdir(parents=True, exist_ok=True)
     # 初始化数据库表
     await init_db()
-    # 预加载 ASR 模型（避免首次WebSocket连接时下载模型导致超时断开）
-    import asyncio
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, lambda: get_asr_engine(source_lang="en", device="cpu"))
+    # ASR 默认使用百炼云端实时识别（BAILIAN_API_KEY），无需预下载本地模型
 
 # CORS 中间件：允许前端开发服务器（localhost:3000）跨域访问
 app.add_middleware(

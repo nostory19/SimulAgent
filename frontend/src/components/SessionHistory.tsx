@@ -18,6 +18,9 @@ interface SessionHistoryProps {
   refreshTrigger?: number;
 }
 
+// API 基础地址，可通过 NEXT_PUBLIC_API_URL 环境变量覆盖
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8765';
+
 export function SessionHistory({ onSelectSession, refreshTrigger }: SessionHistoryProps) {
   const [sessions, setSessions] = useState<CaptureSession[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,7 +31,7 @@ export function SessionHistory({ onSelectSession, refreshTrigger }: SessionHisto
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://localhost:8765/api/v1/sessions');
+      const res = await fetch(`${API_BASE}/api/v1/sessions`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: SessionListResponse = await res.json();
       setSessions(data.sessions);
@@ -47,7 +50,7 @@ export function SessionHistory({ onSelectSession, refreshTrigger }: SessionHisto
   const handleDelete = async (sessionId: string) => {
     if (!confirm('确认删除该会话？此操作不可撤销。')) return;
     try {
-      await fetch(`http://localhost:8765/api/v1/sessions/${sessionId}`, {
+      await fetch(`${API_BASE}/api/v1/sessions/${sessionId}`, {
         method: 'DELETE',
       });
       // 从列表中移除

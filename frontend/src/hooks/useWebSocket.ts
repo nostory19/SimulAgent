@@ -18,7 +18,9 @@ interface UseWebSocketOptions {
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}) {
-  const { url = 'ws://localhost:8765/ws', onMessage, autoConnect = false } = options;
+  // WebSocket 地址默认匹配后端 .env 中 PORT=8765，可通过 NEXT_PUBLIC_WS_URL 环境变量或 options.url 覆盖
+  const defaultUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8765/ws';
+  const { url = defaultUrl, onMessage, autoConnect = false } = options;
   const wsRef = useRef<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout>>();

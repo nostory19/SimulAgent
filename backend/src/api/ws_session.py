@@ -335,8 +335,9 @@ async def handle_session(websocket: WebSocket):
                     full_source = ""         # 全部累积原文
                     full_translation = ""   # 全部累积译文
                     untranslated = ""       # 上次翻译后新增的原文
-                    context_history: list[dict] = []  # 最近3句的(source,translation)上下文
-                    last_audio_time = time.time()     # 上次收到音频的时间
+                    context_history: list[dict] = []  # 最近3句上下文
+                    last_audio_time = time.time()
+                    last_text_change = time.time()    # 云端防抖：上次文本变化时间
                     last_entry_id = None
 
                     while running:
@@ -372,10 +373,25 @@ async def handle_session(websocket: WebSocket):
                                         text = local_asr.process_chunk(chunk, is_final=False)
 
                                 if text:
-                                    # ===== 追加到全文 =====
-                                    full_source += (" " if full_source else "") + text
-                                    untranslated += (" " if untranslated else "") + text
-                                    silence = now - last_audio_time
+                                    if use_cloud_asr:
+                                        # 云端模式：每次返回全量文本→替换
+                                        if text != full_source:
+                                            last_text_change = time.time()
+                                        full_source = text
+                                        untranslated = text
+                                        should_translate = text.strip().endswith(('.', '!', '?', '。', '！', '？'))
+                                        mode_label = "cloud"
+                                    else:
+                                        # 本地模式：追加+断句检测
+                                        full_source += (" " if full_source else "") + text
+                                        untranslated += (" " if untranslated else "") + text
+                                        silence = now - last_audio_time
+                                        if local_asr._is_streaming:
+                                            should_translate = _detect_segment_boundary(untranslated, silence)
+                                            mode_label = "stream"
+                                        else:
+                                            should_translate = len(untranslated.strip()) > 3
+                                            mode_label = "vad"
 
                                     # ===== 推送实时原文 =====
                                     try:
@@ -386,19 +402,12 @@ async def handle_session(websocket: WebSocket):
                                     except RuntimeError:
                                         break
 
-                                    # ===== 智能断句 =====
-                                    # 云端模式：百炼返回的已是完整句，直接翻译
-                                    # 本地VAD模式：ASR输出已是完整段
-                                    # 本地流式模式：需要边界检测
-                                    if use_cloud_asr:
-                                        should_translate = len(untranslated.strip()) > 3
-                                        mode_label = "cloud"
-                                    elif local_asr._is_streaming:
-                                        should_translate = _detect_segment_boundary(untranslated, silence)
-                                        mode_label = "stream"
-                                    else:
-                                        should_translate = len(untranslated.strip()) > 3
-                                        mode_label = "vad"
+                                    # ===== 云端防抖：句末标点 OR 文本稳定1.5秒 =====
+                                    if use_cloud_asr and not should_translate:
+                                        # 检查是否文本已稳定一段时间
+                                        stable_time = now - last_text_change
+                                        if stable_time > 1.5 and len(untranslated.strip()) > 10:
+                                            should_translate = True
 
                                     if should_translate and len(untranslated.strip()) > 3:
                                         to_translate = untranslated.strip()
@@ -479,8 +488,8 @@ async def handle_session(websocket: WebSocket):
                                         except Exception as e:
                                             print(f"[db] save error: {e}")
 
-                                        # ===== 渐进精炼：新上下文修正前文 =====
-                                        if len(context_history) >= 2:
+                                        # ===== 渐进精炼：云端模式跳过（全量替换无需修正），本地模式检查 =====
+                                        if not use_cloud_asr and len(context_history) >= 2:
                                             prev = context_history[-2]
                                             revised = await check_and_revise(
                                                 original_text=prev["source"],

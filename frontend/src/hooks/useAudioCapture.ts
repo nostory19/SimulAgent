@@ -1,5 +1,18 @@
 'use client';
 
+/**
+ * 音频采集 Hook
+ *
+ * 管理浏览器端音频采集状态机：
+ * idle → capturing → paused → capturing → ...
+ *         ↘ error
+ *
+ * 通过 getDisplayMedia 采集浏览器标签页/系统音频，
+ * 使用 AudioContext + ScriptProcessorNode 将原始 PCM 数据通过回调传出。
+ *
+ * 注意：完整的系统级音频采集需要 Electron + 后端 WASAPI loopback。
+ *       浏览器端仅支持 getDisplayMedia 的标签页音频共享。
+ */
 import { useState, useCallback, useRef } from 'react';
 
 type CaptureState = 'idle' | 'capturing' | 'paused' | 'error';
@@ -17,21 +30,20 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
 
+  /** 开始采集音频 */
   const start = useCallback(async () => {
     try {
       setState('capturing');
       setError(null);
 
-      // Request system audio via getUserMedia (for mic) or getDisplayMedia (for tab/system audio)
-      // Note: System-wide audio capture requires Electron WASAPI or desktop-side support.
-      // In Electron, this would use IPC to the main process which handles PyAudioWPatch.
-      // For browser-only mode, we use getDisplayMedia with audio capture.
+      // 请求媒体流（标签页/窗口的系统音频共享）
       const stream = await (navigator.mediaDevices as any).getDisplayMedia({
         video: true,
         audio: true,
       });
       streamRef.current = stream;
 
+      // 创建 AudioContext 用于处理原始音频
       const audioContext = new AudioContext({ sampleRate: 16000 });
       audioContextRef.current = audioContext;
 
@@ -39,12 +51,14 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
+      // 每次音频回调时提取 PCM 数据
       processor.onaudioprocess = (event) => {
         const input = event.inputBuffer.getChannelData(0);
         const buffer = new Float32Array(input);
-        onAudioData?.(buffer.buffer);
+        onAudioData?.(buffer.buffer);  // 将 ArrayBuffer 传给外部（通常是 WebSocket sendBinary）
       };
 
+      // 连接音频处理链
       source.connect(processor);
       processor.connect(audioContext.destination);
     } catch (e: any) {
@@ -54,17 +68,19 @@ export function useAudioCapture(options: UseAudioCaptureOptions = {}) {
     }
   }, [onAudioData, onError]);
 
+  /** 暂停采集（挂起 AudioContext） */
   const pause = useCallback(() => {
-    // Suspend audio context
     audioContextRef.current?.suspend();
     setState('paused');
   }, []);
 
+  /** 恢复采集 */
   const resume = useCallback(() => {
     audioContextRef.current?.resume();
     setState('capturing');
   }, []);
 
+  /** 停止采集并释放所有资源 */
   const stop = useCallback(() => {
     processorRef.current?.disconnect();
     streamRef.current?.getTracks().forEach((t) => t.stop());

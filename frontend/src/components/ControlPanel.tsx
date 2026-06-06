@@ -1,5 +1,15 @@
 'use client';
 
+/**
+ * SimulAgent 控制面板组件
+ *
+ * 主界面组件，功能包括：
+ * - 会话控制（开始/暂停/继续/停止）
+ * - 源语言和目标语言选择
+ * - 显示模式切换（双语/仅中文）
+ * - 实时 ASR 文本预览
+ * - WebSocket 连接状态指示器
+ */
 import { useState, useCallback } from 'react';
 import type { ServerMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -8,9 +18,10 @@ export function ControlPanel() {
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
-  const [asrText, setAsrText] = useState('');
-  const [segments, setSegments] = useState<Array<{ seq: number; text: string }>>([]);
+  const [asrText, setAsrText] = useState('');  // 当前正在识别的文本
+  const [segments, setSegments] = useState<Array<{ seq: number; text: string }>>([]);  // 已识别的文本段
 
+  /** 处理服务端 WebSocket 消息 */
   const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case 'connected':
@@ -22,6 +33,7 @@ export function ControlPanel() {
         break;
       case 'asr_partial':
         setAsrText(msg.text);
+        // 保留最近 50 条历史记录
         setSegments((prev) => [...prev.slice(-49), { seq: msg.sequence_number, text: msg.text }]);
         break;
       case 'asr_final':
@@ -42,6 +54,7 @@ export function ControlPanel() {
     onMessage: handleMessage,
   });
 
+  /** 开始采集：连接 WebSocket 并发送 start_session */
   const handleStart = useCallback(() => {
     if (!connected) connect();
     send({
@@ -65,11 +78,13 @@ export function ControlPanel() {
 
   return (
     <div className="p-4 space-y-4 bg-gray-900 text-white rounded-lg min-w-[320px]">
+      {/* 标题栏 + 连接状态指示器 */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold">SimulAgent</h2>
         <span className={`h-3 w-3 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
       </div>
 
+      {/* 设置区域 */}
       <div className="space-y-2">
         <label className="block text-sm text-gray-400">
           源语言
@@ -98,6 +113,7 @@ export function ControlPanel() {
         </label>
       </div>
 
+      {/* 控制按钮 */}
       <div className="flex gap-2">
         {!sessionActive ? (
           <button
@@ -130,13 +146,14 @@ export function ControlPanel() {
         )}
       </div>
 
-      {/* Live ASR preview */}
+      {/* 实时 ASR 预览区域 */}
       <div className="bg-gray-800 rounded p-3 min-h-[100px] max-h-[300px] overflow-y-auto">
         {asrText ? (
           <p className="text-green-400 text-sm animate-pulse">{asrText}</p>
         ) : (
           <p className="text-gray-600 text-sm">等待语音输入...</p>
         )}
+        {/* 历史识别文本 */}
         <div className="mt-2 space-y-1">
           {segments.slice(-10).map((seg) => (
             <p key={seg.seq} className="text-gray-300 text-xs border-b border-gray-700 pb-1">

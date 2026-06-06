@@ -18,10 +18,10 @@ class StreamingASREngine:
     - [2]=5: 右上下文（lookahead）= 300ms
     """
 
-    def __init__(self, model_name: str = "paraformer-zh-streaming", device: str = "cpu"):
+    def __init__(self, model_name: str = "CTTransformerStreaming", device: str = "cpu"):
         """
         Args:
-            model_name: FunASR 模型名称。默认 paraformer-zh-streaming（支持中英文流式识别）。
+            model_name: FunASR 模型名称。默认 CTTransformerStreaming（流式识别）。
             device: 推理设备，"cpu" 或 "cuda"。
         """
         self._model = AutoModel(

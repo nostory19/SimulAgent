@@ -168,10 +168,19 @@ export function ControlPanel() {
         )}
       </div>
 
-      {/* Streaming preview */}
-      {partialTranslation && (
-        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-          <p className="text-green-700 text-sm animate-pulse font-medium">{partialTranslation || '...'}</p>
+      {/* 实时原文流式展示（英文，即时更新） */}
+      {asrText && sessionActive && (
+        <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-green-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-xs text-green-600 font-medium">实时聆听中</span>
+          </div>
+          <p className="text-gray-800 text-base leading-relaxed font-medium">{asrText}</p>
+          {partialTranslation && (
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <p className="text-green-600 text-sm animate-pulse">{partialTranslation}</p>
+            </div>
+          )}
         </div>
       )}
 

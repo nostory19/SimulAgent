@@ -25,6 +25,8 @@ from ..models.transcription import TranscriptionSegment
 from ..models.translation import TranslationEntry
 from ..asr.stream_buffer import AudioBuffer
 from ..asr.funasr_engine import get_asr_engine
+from ..asr.bailian_asr import BailianRealtimeASR
+import numpy as np
 
 # ===== 翻译提示词模板 =====
 TRANSLATION_SYSTEM = """You are a professional simultaneous interpreter translating English to Simplified Chinese.
@@ -276,8 +278,24 @@ async def handle_session(websocket: WebSocket):
                     continue
 
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
-                asr = get_asr_engine(source_lang=source_lang, device="cpu")
                 running = True
+                # 选择 ASR 引擎
+                # 百炼云端实时 ASR（BAILIAN_API_KEY 可用时优先使用）
+                use_cloud_asr = True if os.getenv("BAILIAN_API_KEY") or os.getenv("DASHSCOPE_API_KEY") else False
+                cloud_queue: asyncio.Queue = asyncio.Queue()
+                if use_cloud_asr:
+                    cloud_asr = BailianRealtimeASR(source_lang=source_lang)
+                    cloud_asr.on_result = lambda t: cloud_queue.put_nowait(t)
+                    cloud_asr.start()
+                    # 等待 task-started（最多5秒）
+                    for _ in range(50):
+                        await asyncio.sleep(0.1)
+                        if cloud_asr.is_active():
+                            break
+                    print(f"[ws] Bailian cloud ASR ({source_lang}), task_started={cloud_asr.is_active()}")
+                else:
+                    local_asr = get_asr_engine(source_lang=source_lang, device="cpu")
+                    print(f"[ws] local FunASR ({source_lang})")
                 # 重置会话统计和术语缓存
                 session_stats["segment_count"] = 0
                 TERM_CACHE.clear()
@@ -327,17 +345,27 @@ async def handle_session(websocket: WebSocket):
                             if audio is not None and buffer is not None:
                                 buffer.feed(audio)
                                 last_audio_time = now
-                                while buffer.has_chunk():
-                                    chunk = buffer.get_chunk()
-                                    text = asr.process_chunk(chunk, is_final=False)
-                                    if not text:
-                                        continue
 
+                                text = None
+                                if use_cloud_asr:
+                                    # 云端模式：发送音频到百炼 → 从队列读结果
+                                    while buffer.has_chunk():
+                                        chunk = buffer.get_chunk()
+                                        i16 = (chunk * 32767).clip(-32768, 32767).astype(np.int16)
+                                        cloud_asr.send_audio(i16)
+                                    # 检查是否有新识别结果
+                                    while not cloud_queue.empty():
+                                        text = cloud_queue.get_nowait()
+                                else:
+                                    # 本地模式：FunASR 处理
+                                    while buffer.has_chunk():
+                                        chunk = buffer.get_chunk()
+                                        text = local_asr.process_chunk(chunk, is_final=False)
+
+                                if text:
                                     # ===== 追加到全文 =====
                                     full_source += (" " if full_source else "") + text
                                     untranslated += (" " if untranslated else "") + text
-
-                                    # 计算静音时长
                                     silence = now - last_audio_time
 
                                     # ===== 推送实时原文 =====
@@ -349,14 +377,23 @@ async def handle_session(websocket: WebSocket):
                                     except RuntimeError:
                                         break
 
-                                    # ===== 智能断句判断 =====
-                                    should_translate = _detect_segment_boundary(
-                                        untranslated, silence
-                                    )
+                                    # ===== 智能断句 =====
+                                    # 云端模式：百炼返回的已是完整句，直接翻译
+                                    # 本地VAD模式：ASR输出已是完整段
+                                    # 本地流式模式：需要边界检测
+                                    if use_cloud_asr:
+                                        should_translate = len(untranslated.strip()) > 3
+                                        mode_label = "cloud"
+                                    elif local_asr._is_streaming:
+                                        should_translate = _detect_segment_boundary(untranslated, silence)
+                                        mode_label = "stream"
+                                    else:
+                                        should_translate = len(untranslated.strip()) > 3
+                                        mode_label = "vad"
 
-                                    if should_translate and len(untranslated.strip()) > 10:
+                                    if should_translate and len(untranslated.strip()) > 3:
                                         to_translate = untranslated.strip()
-                                        print(f"[seg] {to_translate[:80]}... (silence={silence:.1f}s)")
+                                        print(f"[seg] {to_translate[:80]}... (mode={mode_label}, silence={silence:.1f}s)")
 
                                         # ===== 带上下文和术语的流式翻译 =====
                                         term_hint = _build_terminology_hint(to_translate)
@@ -500,8 +537,18 @@ async def handle_session(websocket: WebSocket):
 
             elif msg_type == "stop_session":
                 running = False
-                if asr:
-                    final_text = asr.finalize()
+                # 停止 ASR 并获取最后缓冲的文本
+                if use_cloud_asr:
+                    cloud_asr.stop()
+                    # 读队列中剩余结果
+                    last_text = ""
+                    while not cloud_queue.empty():
+                        t = cloud_queue.get_nowait()
+                        if t:
+                            last_text = t
+                    final_text = last_text or None
+                else:
+                    final_text = local_asr.finalize()
                     if final_text:
                         translation = await _translate_text(final_text)
                         try:

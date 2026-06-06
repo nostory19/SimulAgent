@@ -26,6 +26,7 @@ export function ControlPanel() {
   }, []);
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
+  const [audioSource, setAudioSource] = useState<'loopback' | 'microphone'>('loopback');
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.85);
@@ -125,9 +126,9 @@ export function ControlPanel() {
     if (!connected) connect();
     send({
       type: 'start_session',
-      config: { source_language: sourceLanguage, target_language: 'zh', display_mode: displayMode },
+      config: { source_language: sourceLanguage, target_language: 'zh', display_mode: displayMode, audio_source: audioSource },
     });
-  }, [connected, connect, send, sourceLanguage, displayMode]);
+  }, [connected, connect, send, sourceLanguage, displayMode, audioSource]);
 
   const handleStop = useCallback(() => {
     send({ type: 'stop_session' });
@@ -147,19 +148,27 @@ export function ControlPanel() {
 
       {/* 设置下拉：源语言 + 显示模式 */}
       {!sessionActive && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <select
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
             value={sourceLanguage}
             onChange={(e) => setSourceLanguage(e.target.value)}
           >
-            <option value="en">English (英文)</option>
+            <option value="en">English</option>
             <option value="zh">中文</option>
             <option value="ja">日本語</option>
             <option value="ko">한국어</option>
           </select>
           <select
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
+            value={audioSource}
+            onChange={(e) => setAudioSource(e.target.value as 'loopback' | 'microphone')}
+          >
+            <option value="loopback">系统音频</option>
+            <option value="microphone">麦克风</option>
+          </select>
+          <select
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-white text-xs"
             value={displayMode}
             onChange={(e) => setDisplayMode(e.target.value as 'bilingual' | 'chinese_only')}
           >

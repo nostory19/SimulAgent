@@ -285,7 +285,11 @@ async def handle_session(websocket: WebSocket):
                 cloud_queue: asyncio.Queue = asyncio.Queue()
                 if use_cloud_asr:
                     cloud_asr = BailianRealtimeASR(source_lang=source_lang)
-                    cloud_asr.on_result = lambda t: cloud_queue.put_nowait(t)
+                    # asyncio.Queue 非线程安全，用 call_soon_threadsafe 写入
+                    def _on_cloud_result(text: str):
+                        loop = asyncio.get_event_loop()
+                        loop.call_soon_threadsafe(cloud_queue.put_nowait, text)
+                    cloud_asr.on_result = _on_cloud_result
                     cloud_asr.start()
                     # 等待 task-started（最多5秒）
                     for _ in range(50):

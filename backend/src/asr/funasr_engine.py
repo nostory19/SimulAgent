@@ -18,8 +18,8 @@ class StreamingASREngine:
     - [2]=5: 右上下文（lookahead）= 300ms
     """
 
-    def __init__(self, model_name: str = "CTTransformerStreaming", device: str = "cpu",
-                 mock: bool = True):
+    def __init__(self, model_name: str = "paraformer-zh-streaming", device: str = "cpu",
+                 mock: bool = False):
         """
         Args:
             model_name: FunASR 模型名称。

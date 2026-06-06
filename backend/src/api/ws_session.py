@@ -244,6 +244,10 @@ async def handle_session(websocket: WebSocket):
     await websocket.send_json({"type": "connected", "session_id": session_id})
     print(f"[ws] session={session_id[:8]} connected")
 
+    # 会话级别变量（在函数作用域初始化，避免跨迭代访问问题）
+    db_session_started_at = None
+    session_stats = {"segment_count": 0}
+
     try:
         async for raw in websocket.iter_text():
             try:
@@ -269,9 +273,8 @@ async def handle_session(websocket: WebSocket):
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
                 asr = get_asr_engine(device="cpu")
                 running = True
-                # 会话级别统计（mutable 容器供嵌套函数共享）
-                session_stats = {"segment_count": 0}
-                # 术语缓存重置
+                # 重置会话统计和术语缓存
+                session_stats["segment_count"] = 0
                 TERM_CACHE.clear()
                 TERM_CACHE.update(PRESET_TERMS)
 
@@ -505,18 +508,18 @@ async def handle_session(websocket: WebSocket):
                             pass
 
                 # ===== 数据库：更新会话结束状态 =====
-                ended_at = datetime.now(timezone.utc)
-                duration = int((ended_at - db_session_started_at).total_seconds()) if db_session_started_at else 0
                 try:
+                    ended_at = datetime.now(timezone.utc)
+                    duration = int((ended_at - db_session_started_at).total_seconds()) if db_session_started_at else 0
                     async with async_session() as db:
-                        result = await db.execute(
+                        await db.execute(
                             sql_update(CaptureSession)
                             .where(CaptureSession.id == session_id)
                             .values(
                                 status="completed",
                                 ended_at=ended_at,
                                 duration_seconds=duration,
-                                total_segments=session_stats["segment_count"],
+                                total_segments=session_stats.get("segment_count", 0),
                             )
                         )
                         await db.commit()

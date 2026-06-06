@@ -13,10 +13,16 @@ import os
 import re
 import time
 import uuid
+from datetime import datetime, timezone
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
+from sqlalchemy import update as sql_update
 from ..agents.revision_agent import check_and_revise
 from ..capture.system_audio import AudioCapture
+from ..models.database import async_session
+from ..models.session import CaptureSession
+from ..models.transcription import TranscriptionSegment
+from ..models.translation import TranslationEntry
 from ..asr.stream_buffer import AudioBuffer
 from ..asr.funasr_engine import get_asr_engine
 
@@ -263,7 +269,9 @@ async def handle_session(websocket: WebSocket):
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
                 asr = get_asr_engine(device="cpu")
                 running = True
-                # 会话级别状态重置
+                # 会话级别统计（mutable 容器供嵌套函数共享）
+                session_stats = {"segment_count": 0}
+                # 术语缓存重置
                 TERM_CACHE.clear()
                 TERM_CACHE.update(PRESET_TERMS)
 
@@ -277,6 +285,22 @@ async def handle_session(websocket: WebSocket):
                     }
                 })
                 print(f"[ws] capture started, device={capture.sample_rate}Hz")
+
+                # ===== 数据库：创建会话记录 =====
+                db_session_started_at = datetime.now(timezone.utc)
+                async with async_session() as db:
+                    db_session = CaptureSession(
+                        id=session_id,
+                        title=config.get("title"),
+                        source_language=source_lang,
+                        target_language="zh",
+                        display_mode=config.get("display_mode", "bilingual"),
+                        status="active",
+                        audio_source=audio_source,
+                        started_at=db_session_started_at,
+                    )
+                    db.add(db_session)
+                    await db.commit()
 
                 async def poll_smart_translate():
                     """智能同传主循环：音频采集→ASR→智能断句→带上下文流式翻译→术语缓存→渐进精炼。"""
@@ -351,6 +375,7 @@ async def handle_session(websocket: WebSocket):
 
                                         # ===== 推送累积译文 =====
                                         entry_id = str(uuid.uuid4())
+                                        seg_id = str(uuid.uuid4())
                                         try:
                                             await websocket.send_json({
                                                 "type": "subtitle_entry",
@@ -363,6 +388,35 @@ async def handle_session(websocket: WebSocket):
                                             })
                                         except RuntimeError:
                                             break
+
+                                        # ===== 数据库：保存ASR段 + 翻译记录 =====
+                                        session_stats["segment_count"] += 1
+                                        now_ts = int(time.time() * 1000)
+                                        try:
+                                            async with async_session() as db:
+                                                seg = TranscriptionSegment(
+                                                    id=seg_id,
+                                                    session_id=session_id,
+                                                    sequence_number=session_stats["segment_count"],
+                                                    source_text=to_translate,
+                                                    start_time_ms=now_ts - 2000,
+                                                    end_time_ms=now_ts,
+                                                    confidence=None,
+                                                    is_partial=False,
+                                                )
+                                                db.add(seg)
+                                                trans = TranslationEntry(
+                                                    id=entry_id,
+                                                    segment_id=seg_id,
+                                                    session_id=session_id,
+                                                    translated_text=full_translation,
+                                                    is_revised=False,
+                                                    revision_count=0,
+                                                )
+                                                db.add(trans)
+                                                await db.commit()
+                                        except Exception as e:
+                                            print(f"[db] save error: {e}")
 
                                         # ===== 渐进精炼：新上下文修正前文 =====
                                         if len(context_history) >= 2:
@@ -445,6 +499,27 @@ async def handle_session(websocket: WebSocket):
                             })
                         except RuntimeError:
                             pass
+
+                # ===== 数据库：更新会话结束状态 =====
+                ended_at = datetime.now(timezone.utc)
+                duration = int((ended_at - db_session_started_at).total_seconds()) if db_session_started_at else 0
+                try:
+                    async with async_session() as db:
+                        result = await db.execute(
+                            sql_update(CaptureSession)
+                            .where(CaptureSession.id == session_id)
+                            .values(
+                                status="completed",
+                                ended_at=ended_at,
+                                duration_seconds=duration,
+                                total_segments=session_stats["segment_count"],
+                            )
+                        )
+                        await db.commit()
+                        print(f"[db] session saved: {session_stats['segment_count']} segments, {duration}s")
+                except Exception as e:
+                    print(f"[db] session update error: {e}")
+
                 await websocket.send_json({"type": "session_ended", "session_id": session_id})
                 break
 

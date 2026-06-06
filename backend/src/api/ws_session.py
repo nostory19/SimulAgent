@@ -13,6 +13,7 @@ import uuid
 import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
+from ..agents.revision_agent import check_and_revise
 from ..capture.system_audio import AudioCapture
 from ..asr.stream_buffer import AudioBuffer
 from ..asr.funasr_engine import get_asr_engine
@@ -114,6 +115,8 @@ async def handle_session(websocket: WebSocket):
                     nonlocal segment_sequence
                     pending_text = ""
 
+                    last_entry = None  # 追踪上一条字幕用于动态修正
+
                     while running:
                         try:
                             audio = capture.read() if capture else None
@@ -149,10 +152,11 @@ async def handle_session(websocket: WebSocket):
                                                 "translation": translation,
                                                 "terminology_applied": [],
                                             })
+                                            entry_id = str(uuid.uuid4())
                                             await websocket.send_json({
                                                 "type": "subtitle_entry",
                                                 "entry": {
-                                                    "id": str(uuid.uuid4()),
+                                                    "id": entry_id,
                                                     "segment_id": seg_id,
                                                     "sequence_number": segment_sequence,
                                                     "source_text": pending_text,
@@ -161,6 +165,36 @@ async def handle_session(websocket: WebSocket):
                                                     "timestamp_ms": 0,
                                                 }
                                             })
+
+                                            # 动态修正：用新翻译作为上下文，检查上一句是否需要修正
+                                            if last_entry and len(pending_text) > 15:
+                                                revised = await check_and_revise(
+                                                    original_text=last_entry["source"],
+                                                    old_translation=last_entry["translation"],
+                                                    new_context=pending_text,
+                                                )
+                                                if revised:
+                                                    print(f"[revision] {last_entry['translation'][:40]}... → {revised[:40]}...")
+                                                    await websocket.send_json({
+                                                        "type": "revision",
+                                                        "entry_id": last_entry["id"],
+                                                        "segment_id": last_entry["seg_id"],
+                                                        "sequence_number": last_entry["seq"],
+                                                        "old_translation": last_entry["translation"],
+                                                        "new_translation": revised,
+                                                        "reason": "context_clarification",
+                                                    })
+                                                    # 更新 last_entry 的翻译为修正后的版本
+                                                    last_entry["translation"] = revised
+
+                                            # 保存当前条目供下一轮修正检查
+                                            last_entry = {
+                                                "id": entry_id,
+                                                "seg_id": seg_id,
+                                                "seq": segment_sequence,
+                                                "source": pending_text,
+                                                "translation": translation,
+                                            }
                                             pending_text = ""
 
                             await asyncio.sleep(0.05)

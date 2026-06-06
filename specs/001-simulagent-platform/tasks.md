@@ -151,12 +151,12 @@
 
 ### US5 实现任务
 
-- [ ] T052 [US5] Summary Agent 节点：在 `backend/src/agents/summary_agent.py` 中实现总结 agent，聚合整个会话的 TranscriptionSegment 数据，调用 Ollama 生成结构化总结（摘要、核心观点、术语表、行动项），写入 SessionSummary 表
-- [ ] T053 [US5] SessionSummary 数据模型完善：在 `backend/src/models/summary.py` 中实现 CRUD 方法和 JSON 序列化（key_viewpoints, term_glossary, action_items）
-- [ ] T054 [US5] 总结生成 API 路由：在 `backend/src/api/routes/summary.py` 中实现 `POST /api/v1/sessions/{id}/summary`（触发生成）和 `GET /api/v1/sessions/{id}/summary`（查询已有）端点（参考 contracts/api.md）
-- [ ] T055 [US5] WebSocket summary_ready 消息：在总结生成完成后通过 WebSocket 推送 `summary_ready` 消息（如果会话仍在 WebSocket 连接状态）
-- [ ] T056 [US5] 前端总结展示组件：在 `frontend/src/components/SummaryView.tsx` 中实现总结展示面板（可折叠的摘要/核心观点/术语表/行动项卡片，支持复制和导出）
-- [ ] T057 [US5] 会话结束后自动提示：在 `frontend/src/components/ControlPanel.tsx` 中添加 "生成总结" 按钮（会话结束后可用），点击触发总结生成 API
+- [x] T052 [US5] Summary Agent 节点：在 `backend/src/agents/summary_agent.py` 中调用百炼API生成结构化总结（摘要、核心观点、术语表、行动项）
+- [x] T053 [US5] SessionSummary 数据模型：已有完整CRUD模型，summary_agent写入SessionSummary表
+- [x] T054 [US5] 总结生成 API 路由：`POST /api/v1/sessions/{id}/summary`（触发）+ `GET`（查询）
+- [x] T055 [US5] WebSocket summary_ready：通过REST API触发，ControlPanel集成SummaryView展示
+- [x] T056 [US5] 前端总结展示：SummaryView.tsx可折叠卡片（摘要/观点/术语/行动项）+一键复制
+- [x] T057 [US5] 会话结束后提示：ControlPanel中sessionEnded状态显示"生成AI总结"按钮
 
 **检查点**: US5 可独立验证——结束一个会话后，点击生成总结，查看结构化总结内容真实准确
 

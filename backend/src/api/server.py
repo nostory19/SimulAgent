@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ..models import init_db
 from .routes.system import router as system_router
 from .routes.session import router as session_router
+from .routes.summary import router as summary_router
 from .ws_session import handle_session
 
 # FastAPI 应用实例
@@ -43,6 +44,7 @@ app.add_middleware(
 # 注册 REST 路由
 app.include_router(system_router)
 app.include_router(session_router)
+app.include_router(summary_router)
 
 
 @app.get("/api/v1/health")

@@ -11,11 +11,12 @@
  * - WebSocket 消息路由分发
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ServerMessage } from '../types';
+import type { ServerMessage, SessionSummary } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
 import { SettingsPanel } from './SettingsPanel';
 import { SessionHistory } from './SessionHistory';
+import { SummaryView } from './SummaryView';
 
 export function ControlPanel() {
   // BroadcastChannel 用于同步字幕数据到弹窗
@@ -34,6 +35,9 @@ export function ControlPanel() {
   const [partialTranslation, setPartialTranslation] = useState('');  // 流式翻译累积token
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([]);
   const [historyRefresh, setHistoryRefresh] = useState(0);
+  const [summary, setSummary] = useState<SessionSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   // 字幕变化时通过 BroadcastChannel 同步到弹窗
   useEffect(() => {
@@ -73,6 +77,8 @@ export function ControlPanel() {
         setSessionActive(true);
         setSubtitles([]);
         setAsrText('');
+        setSummary(null);
+        setCurrentSessionId(msg.session?.id || null);
         break;
       case 'asr_partial':
         setAsrText(msg.text);
@@ -253,6 +259,33 @@ export function ControlPanel() {
         opacity={opacity}
         onOpacityChange={setOpacity}
       />
+
+      {/* AI 总结 */}
+      {currentSessionId && (
+        <SummaryView
+          summary={summary}
+          loading={summaryLoading}
+          sessionEnded={!sessionActive && !!currentSessionId}
+          sessionId={currentSessionId}
+          onGenerate={async () => {
+            setSummaryLoading(true);
+            try {
+              const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766'}/api/v1/sessions/${currentSessionId}/summary`,
+                { method: 'POST' }
+              );
+              if (res.ok) {
+                const data = await res.json();
+                setSummary(data);
+              }
+            } catch (e) {
+              console.error('Failed to generate summary', e);
+            } finally {
+              setSummaryLoading(false);
+            }
+          }}
+        />
+      )}
 
       {/* 历史会话 */}
       <SessionHistory refreshTrigger={historyRefresh} />

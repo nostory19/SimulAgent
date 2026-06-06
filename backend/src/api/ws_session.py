@@ -1,16 +1,18 @@
 """
-WebSocket 会话处理器。
+WebSocket 会话处理器——智能同声传译模式。
 
-处理单个 WebSocket 连接的全生命周期：
-1. 接收会话控制消息（start/pause/resume/stop）
-2. 驱动 AudioCapture → AudioBuffer → ASR → 百炼翻译流水线
-3. 将识别和翻译结果实时推送给前端
+优化特性：
+1. 智能断句：VAD静音检测 + 标点符号 + 语义完整性判断
+2. 术语一致性：翻译缓存表，同一term前后翻译一致
+3. 上下文窗口：注入最近3句完整上文供翻译参考
+4. 渐进精炼：后文修正前文，先草稿后精修
 """
 import asyncio
 import json
 import os
+import re
+import time
 import uuid
-import numpy as np
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
 from ..agents.revision_agent import check_and_revise
@@ -18,12 +20,55 @@ from ..capture.system_audio import AudioCapture
 from ..asr.stream_buffer import AudioBuffer
 from ..asr.funasr_engine import get_asr_engine
 
-TRANSLATION_PROMPT = """You are a professional simultaneous interpreter translating from English to Simplified Chinese.
-Rules:
-- Produce only the Chinese translation. Do not add explanations, notes, or the original English.
-- Use natural, fluent Chinese that sounds like a native speaker.
-- Preserve proper nouns, product names, and technical acronyms in their original form.
-- Keep the translation concise."""
+# ===== 翻译提示词模板 =====
+TRANSLATION_SYSTEM = """You are a professional simultaneous interpreter translating English to Simplified Chinese.
+- Produce only the Chinese translation. No explanations.
+- Natural, fluent, native-level Chinese.
+- Keep proper nouns and acronyms in original form."""
+
+TRANSLATION_WITH_CONTEXT = """Translate to Chinese. Use the context and terminology below for consistency.
+
+Previous context (for reference):
+{context}
+
+Consistent terminology:
+{terminology}
+
+Text to translate: {text}"""
+
+# ===== 智能断句相关 =====
+SENTENCE_END_PUNCT = {'.', '!', '?', '。', '！', '？', '\n'}
+PAUSE_PUNCT = {',', ';', ':', '，', '；', '：', '、', '—', '-'}
+MIN_SEGMENT_CHARS = 20   # 最少字符才构成一个完整句段
+MIN_SILENCE_SEC = 0.6    # 静音>0.6秒视为断句边界
+
+# ===== 术语缓存 =====
+TERM_CACHE: dict[str, str] = {}   # {english_term: chinese_translation}
+
+# 高频技术术语预置表（启动时加载，翻译时优先使用）
+PRESET_TERMS: dict[str, str] = {
+    "artificial intelligence": "人工智能",
+    "machine learning": "机器学习",
+    "deep learning": "深度学习",
+    "neural network": "神经网络",
+    "natural language processing": "自然语言处理",
+    "computer vision": "计算机视觉",
+    "transformer": "Transformer架构",
+    "foundation model": "基础模型",
+    "large language model": "大语言模型",
+    "reinforcement learning": "强化学习",
+    "generative adversarial network": "生成对抗网络",
+    "backpropagation": "反向传播",
+    "gradient descent": "梯度下降",
+    "attention mechanism": "注意力机制",
+    "embedding": "嵌入",
+    "fine-tuning": "微调",
+    "pre-training": "预训练",
+    "zero-shot": "零样本",
+    "few-shot": "少样本",
+    "chain of thought": "思维链",
+    "retrieval augmented generation": "检索增强生成",
+}
 
 
 def _get_translation_client():
@@ -32,8 +77,124 @@ def _get_translation_client():
     return AsyncOpenAI(api_key=api_key, base_url=base_url)
 
 
+def _detect_segment_boundary(text: str, silence_sec: float) -> bool:
+    """
+    智能断句检测。
+
+    条件（满足任一即视为断句边界）：
+    1. 文本以句末标点结尾 + 静音 >0.3秒
+    2. 静音 > MIN_SILENCE_SEC 且文本长度 > MIN_SEGMENT_CHARS
+    3. 文本长度 > 80字符（长句强制分段）
+    """
+    text = text.strip()
+    if not text:
+        return False
+    # 条件1：句末标点 + 短暂静音
+    if text[-1] in SENTENCE_END_PUNCT and silence_sec > 0.3:
+        return True
+    # 条件2：较长静音 + 足够文本
+    if silence_sec > MIN_SILENCE_SEC and len(text) >= MIN_SEGMENT_CHARS:
+        return True
+    # 条件3：长句强制断
+    if len(text) >= 80:
+        return True
+    return False
+
+
+def _extract_terms(text: str) -> list[str]:
+    """从文本中提取已知术语（包括词和短语）。"""
+    found = []
+    text_lower = text.lower()
+    for term in {**PRESET_TERMS, **TERM_CACHE}:
+        if term.lower() in text_lower and term not in found:
+            found.append(term)
+    return found
+
+
+def _build_context_prompt(context: list[dict]) -> str:
+    """构建最近3句上文文本，供翻译参考。"""
+    if not context:
+        return "(none - this is the first sentence)"
+    parts = []
+    for i, item in enumerate(context[-3:]):
+        parts.append(f"[{i+1}] EN: {item['source']}\n    ZH: {item['translation']}")
+    return "\n".join(parts)
+
+
+def _build_terminology_hint(text: str) -> str:
+    """提取文本中的已知术语及其缓存翻译。"""
+    terms = _extract_terms(text)
+    if not terms:
+        return "(none)"
+    hints = []
+    for t in terms:
+        zh = TERM_CACHE.get(t) or PRESET_TERMS.get(t, "")
+        if zh:
+            hints.append(f"{t} → {zh}")
+    return "\n".join(hints) if hints else "(none)"
+
+
+async def _translate_stream(text: str, websocket: WebSocket,
+                             context: list[dict] | None = None) -> str:
+    """
+    流式翻译：逐 token 推送，注入上下文和术语提示。
+
+    Args:
+        text: 待翻译文本。
+        websocket: WebSocket连接。
+        context: 最近的(source, translation)上下文列表。
+    """
+    if not text.strip():
+        return text
+    client = _get_translation_client()
+    model_name = os.getenv("BAILIAN_MODEL", "qwen3-8b")
+
+    ctx_text = _build_context_prompt(context or [])
+    term_text = _build_terminology_hint(text)
+
+    # 用上下文+术语注入prompt vs 简洁prompt
+    if context or _extract_terms(text):
+        user_msg = TRANSLATION_WITH_CONTEXT.format(
+            context=ctx_text, terminology=term_text, text=text
+        )
+    else:
+        user_msg = f"Translate: {text}"
+
+    accumulated = []
+    try:
+        stream = await client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": TRANSLATION_SYSTEM},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0.3,
+            max_tokens=500,
+            stream=True,
+            extra_body={"enable_thinking": False},
+        )
+        idx = 0
+        async for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                accumulated.append(delta.content)
+                idx += 1
+                try:
+                    await websocket.send_json({
+                        "type": "translation_token",
+                        "token": delta.content,
+                        "token_index": idx,
+                    })
+                except RuntimeError:
+                    break
+        return "".join(accumulated)
+    except Exception as e:
+        print(f"[translate_stream] error: {e}")
+        return text
+
+
 async def _translate_text(text: str) -> str:
-    """调用百炼 API 翻译一段文本（非流式）。"""
+    """非流式翻译（flush场景）。"""
     if not text.strip():
         return text
     client = _get_translation_client()
@@ -42,7 +203,7 @@ async def _translate_text(text: str) -> str:
         response = await client.chat.completions.create(
             model=model_name,
             messages=[
-                {"role": "system", "content": TRANSLATION_PROMPT},
+                {"role": "system", "content": TRANSLATION_SYSTEM},
                 {"role": "user", "content": f"Translate: {text}"},
             ],
             temperature=0.3,
@@ -56,15 +217,23 @@ async def _translate_text(text: str) -> str:
         return text
 
 
+def _update_term_cache(source: str, translation: str):
+    """翻译完成后更新术语缓存，确保后续同一术语翻译一致。"""
+    terms = _extract_terms(source)
+    for term in terms:
+        if term not in TERM_CACHE:
+            # 尝试从翻译中匹配对应中文（简单策略：保存等待下次匹配）
+            TERM_CACHE[term] = translation
+
+
 async def handle_session(websocket: WebSocket):
-    """处理一个 WebSocket 会话。"""
+    """处理 WebSocket 会话——智能同声传译。"""
     await websocket.accept()
     session_id = str(uuid.uuid4())
     capture: AudioCapture | None = None
     buffer: AudioBuffer | None = None
     running = False
     poll_task: asyncio.Task | None = None
-    segment_sequence = 0
 
     await websocket.send_json({"type": "connected", "session_id": session_id})
     print(f"[ws] session={session_id[:8]} connected")
@@ -75,28 +244,26 @@ async def handle_session(websocket: WebSocket):
                 msg = json.loads(raw)
             except json.JSONDecodeError:
                 continue
-
             msg_type = msg.get("type")
 
-            # ===== 开始采集 =====
             if msg_type == "start_session":
                 config = msg.get("config", {})
                 source_lang = config.get("source_language", "en")
 
-                # 启动 WASAPI loopback 音频采集
                 capture = AudioCapture()
                 if not capture.start():
                     await websocket.send_json({
                         "type": "error", "code": "AUDIO_CAPTURE_FAILED",
-                        "message": "无法启动音频采集，请检查音频设备"
+                        "message": "无法启动音频采集"
                     })
                     continue
 
-                # 初始化音频缓冲区和 ASR 引擎
                 buffer = AudioBuffer(input_rate=capture.sample_rate)
                 asr = get_asr_engine(device="cpu")
                 running = True
-                segment_sequence = 0
+                # 会话级别状态重置
+                TERM_CACHE.clear()
+                TERM_CACHE.update(PRESET_TERMS)
 
                 await websocket.send_json({
                     "type": "session_started",
@@ -105,142 +272,191 @@ async def handle_session(websocket: WebSocket):
                         "source_language": source_lang,
                         "target_language": "zh",
                         "display_mode": config.get("display_mode", "bilingual"),
-                        "started_at": None,
                     }
                 })
                 print(f"[ws] capture started, device={capture.sample_rate}Hz")
 
-                async def poll_audio_and_translate():
-                    """异步轮询：采集音频 → ASR → 翻译 → 推送前端。"""
-                    nonlocal segment_sequence
-                    pending_text = ""
-
-                    last_entry = None  # 追踪上一条字幕用于动态修正
+                async def poll_smart_translate():
+                    """智能同传主循环：音频采集→ASR→智能断句→带上下文流式翻译→术语缓存→渐进精炼。"""
+                    full_source = ""         # 全部累积原文
+                    full_translation = ""   # 全部累积译文
+                    untranslated = ""       # 上次翻译后新增的原文
+                    context_history: list[dict] = []  # 最近3句的(source,translation)上下文
+                    last_audio_time = time.time()     # 上次收到音频的时间
+                    last_entry_id = None
 
                     while running:
                         try:
                             audio = capture.read() if capture else None
+                            now = time.time()
+
                             if audio is not None and buffer is not None:
                                 buffer.feed(audio)
+                                last_audio_time = now
                                 while buffer.has_chunk():
                                     chunk = buffer.get_chunk()
                                     text = asr.process_chunk(chunk, is_final=False)
-                                    if text:
-                                        segment_sequence += 1
-                                        seg_id = str(uuid.uuid4())
+                                    if not text:
+                                        continue
 
-                                        # 推送 ASR 增量结果
+                                    # ===== 追加到全文 =====
+                                    full_source += (" " if full_source else "") + text
+                                    untranslated += (" " if untranslated else "") + text
+
+                                    # 计算静音时长
+                                    silence = now - last_audio_time
+
+                                    # ===== 推送实时原文 =====
+                                    try:
                                         await websocket.send_json({
                                             "type": "asr_partial",
-                                            "segment_id": seg_id,
-                                            "sequence_number": segment_sequence,
-                                            "text": text,
-                                            "is_final": False,
-                                            "timestamp_ms": 0,
+                                            "text": full_source,
                                         })
+                                    except RuntimeError:
+                                        break
 
-                                        # 累积文本后翻译
-                                        pending_text += " " + text
-                                        pending_text = pending_text.strip()
-                                        if len(pending_text) > 30:
-                                            translation = await _translate_text(pending_text)
-                                            print(f"[asr] {pending_text[:60]}...")
-                                            print(f"[zh]  {translation[:60]}...")
-                                            await websocket.send_json({
-                                                "type": "translation_complete",
-                                                "segment_id": seg_id,
-                                                "translation": translation,
-                                                "terminology_applied": [],
-                                            })
-                                            entry_id = str(uuid.uuid4())
+                                    # ===== 智能断句判断 =====
+                                    should_translate = _detect_segment_boundary(
+                                        untranslated, silence
+                                    )
+
+                                    if should_translate and len(untranslated.strip()) > 10:
+                                        to_translate = untranslated.strip()
+                                        print(f"[seg] {to_translate[:80]}... (silence={silence:.1f}s)")
+
+                                        # ===== 带上下文和术语的流式翻译 =====
+                                        term_hint = _build_terminology_hint(to_translate)
+                                        if term_hint != "(none)":
+                                            print(f"[term] {term_hint[:80]}")
+
+                                        translation = await _translate_stream(
+                                            to_translate, websocket, context_history
+                                        )
+                                        print(f"[zh]  {translation[:80]}...")
+
+                                        # ===== 更新术语缓存 =====
+                                        _update_term_cache(to_translate, translation)
+                                        context_history.append({
+                                            "source": to_translate,
+                                            "translation": translation,
+                                        })
+                                        # 只保留最近3句
+                                        context_history = context_history[-3:]
+
+                                        # ===== 追加到全文翻译 =====
+                                        full_translation += (" " if full_translation else "") + translation
+                                        untranslated = ""
+
+                                        # ===== 推送累积译文 =====
+                                        entry_id = str(uuid.uuid4())
+                                        try:
                                             await websocket.send_json({
                                                 "type": "subtitle_entry",
                                                 "entry": {
                                                     "id": entry_id,
-                                                    "segment_id": seg_id,
-                                                    "sequence_number": segment_sequence,
-                                                    "source_text": pending_text,
-                                                    "translated_text": translation,
+                                                    "source_text": full_source,
+                                                    "translated_text": full_translation,
                                                     "is_revised": False,
-                                                    "timestamp_ms": 0,
                                                 }
                                             })
+                                        except RuntimeError:
+                                            break
 
-                                            # 动态修正：用新翻译作为上下文，检查上一句是否需要修正
-                                            if last_entry and len(pending_text) > 15:
-                                                revised = await check_and_revise(
-                                                    original_text=last_entry["source"],
-                                                    old_translation=last_entry["translation"],
-                                                    new_context=pending_text,
+                                        # ===== 渐进精炼：新上下文修正前文 =====
+                                        if len(context_history) >= 2:
+                                            prev = context_history[-2]
+                                            revised = await check_and_revise(
+                                                original_text=prev["source"],
+                                                old_translation=prev["translation"],
+                                                new_context=to_translate,
+                                            )
+                                            if revised:
+                                                print(f"[revision] {prev['translation'][:40]}... → {revised[:40]}...")
+                                                # 更新上下文中的翻译
+                                                prev["translation"] = revised
+                                                # 更新全文翻译（替换旧部分）
+                                                old_part = prev["translation"]
+                                                full_translation = full_translation.replace(
+                                                    old_part, revised, 1
                                                 )
-                                                if revised:
-                                                    print(f"[revision] {last_entry['translation'][:40]}... → {revised[:40]}...")
+                                                try:
                                                     await websocket.send_json({
                                                         "type": "revision",
-                                                        "entry_id": last_entry["id"],
-                                                        "segment_id": last_entry["seg_id"],
-                                                        "sequence_number": last_entry["seq"],
-                                                        "old_translation": last_entry["translation"],
+                                                        "entry_id": entry_id,
+                                                        "old_translation": old_part,
                                                         "new_translation": revised,
                                                         "reason": "context_clarification",
                                                     })
-                                                    # 更新 last_entry 的翻译为修正后的版本
-                                                    last_entry["translation"] = revised
+                                                except RuntimeError:
+                                                    break
+                                        last_entry_id = entry_id
 
-                                            # 保存当前条目供下一轮修正检查
-                                            last_entry = {
-                                                "id": entry_id,
-                                                "seg_id": seg_id,
-                                                "seq": segment_sequence,
-                                                "source": pending_text,
-                                                "translation": translation,
-                                            }
-                                            pending_text = ""
+                            else:
+                                # 无音频时检查静音超时
+                                silence = now - last_audio_time
+                                if untranslated.strip() and silence > 1.5:
+                                    # 静音超过1.5秒，强制翻译剩余文本
+                                    to_translate = untranslated.strip()
+                                    if len(to_translate) > 5:
+                                        print(f"[silence] force translate: {to_translate[:60]}...")
+                                        translation = await _translate_stream(
+                                            to_translate, websocket, context_history
+                                        )
+                                        full_translation += (" " if full_translation else "") + translation
+                                        context_history.append({
+                                            "source": to_translate,
+                                            "translation": translation,
+                                        })
+                                        context_history = context_history[-3:]
+                                        untranslated = ""
+                                        try:
+                                            await websocket.send_json({
+                                                "type": "subtitle_entry",
+                                                "entry": {
+                                                    "id": str(uuid.uuid4()),
+                                                    "source_text": full_source,
+                                                    "translated_text": full_translation,
+                                                    "is_revised": False,
+                                                }
+                                            })
+                                        except RuntimeError:
+                                            break
 
                             await asyncio.sleep(0.05)
                         except RuntimeError:
-                            # WebSocket 已关闭
                             break
                         except Exception as e:
                             print(f"[poll] error: {e}")
 
-                poll_task = asyncio.create_task(poll_audio_and_translate())
+                poll_task = asyncio.create_task(poll_smart_translate())
 
-            # ===== 暂停 =====
-            elif msg_type == "pause_session":
-                running = False
-                await websocket.send_json({"type": "session_status", "status": "paused"})
-
-            # ===== 恢复 =====
-            elif msg_type == "resume_session":
-                if capture and not capture.is_running:
-                    capture.start()
-                running = True
-                await websocket.send_json({"type": "session_status", "status": "active"})
-                if poll_task is None or poll_task.done():
-                    poll_task = asyncio.create_task(poll_audio_and_translate())
-
-            # ===== 停止 =====
             elif msg_type == "stop_session":
                 running = False
                 if asr:
                     final_text = asr.finalize()
                     if final_text:
                         translation = await _translate_text(final_text)
-                        await websocket.send_json({
-                            "type": "asr_final",
-                            "segment_id": str(uuid.uuid4()),
-                            "text": final_text,
-                            "confidence": 1.0,
-                        })
-                        await websocket.send_json({
-                            "type": "translation_complete",
-                            "segment_id": str(uuid.uuid4()),
-                            "translation": translation,
-                            "terminology_applied": [],
-                        })
+                        try:
+                            await websocket.send_json({
+                                "type": "translation_complete",
+                                "translation": translation,
+                            })
+                        except RuntimeError:
+                            pass
                 await websocket.send_json({"type": "session_ended", "session_id": session_id})
                 break
+
+            elif msg_type == "pause_session":
+                running = False
+                await websocket.send_json({"type": "session_status", "status": "paused"})
+
+            elif msg_type == "resume_session":
+                if capture and not capture.is_running:
+                    capture.start()
+                running = True
+                await websocket.send_json({"type": "session_status", "status": "active"})
+                if poll_task is None or poll_task.done():
+                    poll_task = asyncio.create_task(poll_smart_translate())
 
     except WebSocketDisconnect:
         print(f"[ws] session={session_id[:8]} disconnected")

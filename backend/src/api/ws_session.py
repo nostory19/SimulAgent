@@ -44,9 +44,10 @@ Text to translate: {text}"""
 
 # ===== 智能断句相关 =====
 SENTENCE_END_PUNCT = {'.', '!', '?', '。', '！', '？', '\n'}
-PAUSE_PUNCT = {',', ';', ':', '，', '；', '：', '、', '—', '-'}
-MIN_SEGMENT_CHARS = 20   # 最少字符才构成一个完整句段
-MIN_SILENCE_SEC = 0.6    # 静音>0.6秒视为断句边界
+COMMA_PUNCT = {',', ';', ':', '，', '；', '：', '—', '-'}
+MIN_SEGMENT_CHARS = 15    # 最少字符才构成一个完整句段
+MIN_SILENCE_SEC = 0.4     # 静音>0.4秒视为断句边界（配合VAD的500ms）
+MAX_FORCE_CHARS = 50      # 超过50字符强制断句（避免等待过长）
 
 # ===== 术语缓存 =====
 TERM_CACHE: dict[str, str] = {}   # {english_term: chinese_translation}
@@ -88,21 +89,25 @@ def _detect_segment_boundary(text: str, silence_sec: float) -> bool:
     智能断句检测。
 
     条件（满足任一即视为断句边界）：
-    1. 文本以句末标点结尾 + 静音 >0.3秒
-    2. 静音 > MIN_SILENCE_SEC 且文本长度 > MIN_SEGMENT_CHARS
-    3. 文本长度 > 80字符（长句强制分段）
+    1. 句末标点(.!?) + 静音 >0.2秒 → 完整句
+    2. 逗号类标点 + 静音 >0.5秒 + 文本>15字符 → 子句停顿
+    3. 静音 > MIN_SILENCE_SEC + 文本长度 > MIN_SEGMENT_CHARS → VAD已确认段落
+    4. 文本长度 > MAX_FORCE_CHARS → 强制断（不再让用户等太久）
     """
     text = text.strip()
     if not text:
         return False
-    # 条件1：句末标点 + 短暂静音
-    if text[-1] in SENTENCE_END_PUNCT and silence_sec > 0.3:
+    # 条件1：句末标点
+    if text[-1] in SENTENCE_END_PUNCT and silence_sec > 0.2:
         return True
-    # 条件2：较长静音 + 足够文本
+    # 条件2：逗号子句 + 较长静音
+    if text[-1] in COMMA_PUNCT and silence_sec > 0.5 and len(text) >= MIN_SEGMENT_CHARS:
+        return True
+    # 条件3：静音确认的段落（VAD已触发）
     if silence_sec > MIN_SILENCE_SEC and len(text) >= MIN_SEGMENT_CHARS:
         return True
-    # 条件3：长句强制断
-    if len(text) >= 80:
+    # 条件4：强制断句，不让用户等太久
+    if len(text) >= MAX_FORCE_CHARS:
         return True
     return False
 

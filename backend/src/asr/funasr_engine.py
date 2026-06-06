@@ -18,21 +18,29 @@ class StreamingASREngine:
     - [2]=5: 右上下文（lookahead）= 300ms
     """
 
-    def __init__(self, model_name: str = "CTTransformerStreaming", device: str = "cpu"):
+    def __init__(self, model_name: str = "CTTransformerStreaming", device: str = "cpu",
+                 mock: bool = True):
         """
         Args:
-            model_name: FunASR 模型名称。默认 CTTransformerStreaming（流式识别）。
+            model_name: FunASR 模型名称。
             device: 推理设备，"cpu" 或 "cuda"。
+            mock: True 时使用模拟ASR（无模型依赖，用于测试），False 时加载真实模型。
         """
-        self._model = AutoModel(
-            model=model_name,
-            device=device,
-            disable_pbar=True,  # 关闭进度条
-            disable_log=True,   # 关闭日志输出
-        )
-        self._chunk_size = [0, 10, 5]  # 600ms chunk + 300ms lookahead
-        self._cache: dict = {}  # 跨 chunk 状态缓存
+        self._mock = mock
+        self._chunk_size = [0, 10, 5]
+        self._cache: dict = {}
         self._sample_rate = 16000
+        self._mock_counter = 0
+
+        if not mock:
+            self._model = AutoModel(
+                model=model_name,
+                device=device,
+                disable_pbar=True,
+                disable_log=True,
+            )
+        else:
+            self._model = None
 
     def reset(self):
         """重置 ASR 状态，开始新的 utterance 前调用。"""
@@ -42,35 +50,51 @@ class StreamingASREngine:
         """
         处理一个音频 chunk，返回增量识别文本。
 
-        Args:
-            audio: float32 numpy 数组，16000Hz 单声道，约 9600 samples (600ms)。
-            is_final: 是否为最后一个 chunk（触发解码器 flush）。
-
-        Returns:
-            本次 chunk 新识别出的增量文本，无新内容时返回 None。
+        mock 模式下返回模拟英文文本，用于端到端测试流水线。
         """
+        if self._mock:
+            self._mock_counter += 1
+            # 每3个chunk返回一段模拟识别文本
+            if self._mock_counter % 3 == 0:
+                phrases = [
+                    "Today I'd like to talk about artificial intelligence.",
+                    "The future of technology is very promising.",
+                    "Machine learning has transformed many industries.",
+                    "We need to consider the ethical implications.",
+                    "Let me show you some examples of this approach.",
+                    "This research was conducted over three years.",
+                    "The results demonstrate significant improvements.",
+                    "I think this is a very important question.",
+                    "Deep learning models require large amounts of data.",
+                    "Thank you for your attention today.",
+                ]
+                return phrases[(self._mock_counter // 3) % len(phrases)]
+            return None
+
         result = self._model.generate(
             input=audio,
-            cache=self._cache,  # 传入同一个 dict 以保持跨 chunk 状态
+            cache=self._cache,
             is_final=is_final,
             chunk_size=self._chunk_size,
-            encoder_chunk_look_back=4,  # encoder 可回看前 4 个 chunk
-            decoder_chunk_look_back=1,  # decoder 交叉注意力回看 1 个 chunk
+            encoder_chunk_look_back=4,
+            decoder_chunk_look_back=1,
         )
-        # 提取识别文本（如有）
         if result and result[0].get("text"):
             return result[0]["text"]
         return None
 
     def finalize(self) -> str | None:
         """会话结束时调用，flush 解码器中缓存的最后输出。"""
+        if self._mock:
+            self._mock_counter = 0
+            return "Thank you all for listening."
         result = self._model.generate(
-            input=None,  # None 表示流结束
+            input=None,
             cache=self._cache,
             is_final=True,
             chunk_size=self._chunk_size,
         )
-        self._cache = {}  # 重置状态
+        self._cache = {}
         if result and result[0].get("text"):
             return result[0]["text"]
         return None

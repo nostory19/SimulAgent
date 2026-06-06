@@ -424,7 +424,12 @@ async def handle_session(websocket: WebSocket):
                                         context_history = context_history[-3:]
 
                                         # ===== 追加到全文翻译 =====
-                                        full_translation += (" " if full_translation else "") + translation
+                                        # 云端模式：每次翻译的是全量文本，直接替换避免重复
+                                        # 本地模式：每次翻译的是增量文本，追加到后面
+                                        if use_cloud_asr:
+                                            full_translation = translation
+                                        else:
+                                            full_translation += (" " if full_translation else "") + translation
                                         untranslated = ""
 
                                         # ===== 推送累积译文 =====
@@ -514,7 +519,10 @@ async def handle_session(websocket: WebSocket):
                                         translation = await _translate_stream(
                                             to_translate, websocket, context_history
                                         )
-                                        full_translation += (" " if full_translation else "") + translation
+                                        if use_cloud_asr:
+                                            full_translation = translation
+                                        else:
+                                            full_translation += (" " if full_translation else "") + translation
                                         context_history.append({
                                             "source": to_translate,
                                             "translation": translation,

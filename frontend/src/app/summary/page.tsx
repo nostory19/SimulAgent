@@ -112,6 +112,11 @@ export default function SummaryPage() {
       {/* Summary result */}
       {summary && !loading && (
         <div className="space-y-3 card-enter">
+          <button onClick={() => { setSummary(null); setActiveId(''); }}
+            className="text-xs font-medium transition-colors duration-150"
+            style={{ color: 'var(--text-tertiary)' }}>
+            ← 返回会话列表
+          </button>
           {/* Abstract */}
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2 mb-3">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ServerMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
@@ -22,6 +22,8 @@ export function TranslatePage() {
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.75);
   const [asrText, setAsrText] = useState('');
+  const asrTextRef = useRef('');
+  const setAsrTextSync = useCallback((v: string) => { asrTextRef.current = v; setAsrText(v); }, []);
   const [partialTranslation, setPartialTranslation] = useState('');
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([]);
   const [fullTranscript, setFullTranscript] = useState('');  // 全量累积译文
@@ -32,18 +34,18 @@ export function TranslatePage() {
   const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case 'connected': break;
-      case 'session_started': setSessionActive(true); setSubtitles([]); setAsrText(''); setPartialTranslation(''); break;
+      case 'session_started': setSessionActive(true); setSubtitles([]); setAsrTextSync(''); setPartialTranslation(''); break;
       case 'asr_partial':
         // 新句子开始：英文不包含上句 → 清空旧翻译避免残留
-        if (msg.text && asrText && !msg.text.includes(asrText.trim())) {
+        if (msg.text && asrTextRef.current && !msg.text.includes(asrTextRef.current.trim())) {
           setPartialTranslation('');
         }
-        setAsrText(msg.text);
+        setAsrTextSync(msg.text);
         break;
       case 'translation_token': setPartialTranslation(prev => prev + msg.token); break;
       case 'translation_complete':
         setPartialTranslation('');
-        setSubtitles(prev => [...prev.slice(-49), { id: msg.segment_id, sequence_number: prev.length + 1, source_text: asrText || '', translated_text: msg.translation, is_revised: false, timestamp_ms: Date.now() }]);
+        setSubtitles(prev => [...prev.slice(-49), { id: msg.segment_id, sequence_number: prev.length + 1, source_text: asrTextRef.current || '', translated_text: msg.translation, is_revised: false, timestamp_ms: Date.now() }]);
         break;
       case 'subtitle_entry': {
         const newSource = (msg.entry as any).segment_source || msg.entry.source_text || '';
@@ -62,7 +64,7 @@ export function TranslatePage() {
       case 'session_ended': setSessionActive(false); break;
       case 'error': console.error('WS error:', msg.message); break;
     }
-  }, [asrText]);
+  }, [setAsrTextSync]);
 
   const { connected, connect, send } = useWebSocket({ url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8766/ws', onMessage: handleMessage });
 
@@ -82,9 +84,9 @@ export function TranslatePage() {
   useEffect(() => { if (!sessionActive) { setLatency(0); return; } const iv = setInterval(() => setLatency(prev => +(prev + 0.1).toFixed(1)), 100); return () => clearInterval(iv); }, [sessionActive]);
 
   const handleStart = useCallback(() => {
-    setSubtitles([]); setAsrText(''); setPartialTranslation(''); if (!connected) connect();
+    setSubtitles([]); setAsrTextSync(''); setPartialTranslation(''); if (!connected) connect();
     send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice } });
-  }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice]);
+  }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice, setAsrTextSync]);
 
   const handleStop = useCallback(() => { send({ type: 'stop_session' }); setSessionActive(false); }, [send]);
   const pipWindowRef = useRef<any>(null);
@@ -197,14 +199,14 @@ export function TranslatePage() {
   };
 
   useEffect(() => { bcRef.current?.postMessage({ type: 'subtitles', subtitles }); }, [subtitles]);
-  useEffect(() => { bcRef.current?.postMessage({ type: 'partial', source: asrText, translation: partialTranslation }); }, [asrText, partialTranslation]);
+  useEffect(() => { bcRef.current?.postMessage({ type: 'partial', source: asrTextRef.current, translation: partialTranslation }); }, [asrText, partialTranslation]);
   useEffect(() => { bcRef.current?.postMessage({ type: 'settings', displayMode, fontSize, opacity }); }, [displayMode, fontSize, opacity]);
 
   // === RENDER ===
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+    <div className="flex flex-col" style={{ height: 'calc(100dvh - 80px)' }}>
       {/* === Top: Compact toolbar === */}
-      <div className="flex items-center gap-3 pb-4">
+      <div className="flex items-center gap-3 pb-4 flex-wrap">
         <div className="flex items-center gap-2 flex-1 flex-wrap">
           <LangSelect value={sourceLanguage} onChange={setSourceLanguage} />
           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>→</span>
@@ -291,7 +293,7 @@ export function TranslatePage() {
               <button onClick={handleStart}
                 className="w-28 h-28 relative z-10 rounded-3xl flex items-center justify-center cursor-pointer transition-all duration-200 active:scale-95"
                 style={{
-                  background: 'linear-gradient(135deg, #a78bfa 0%, #7c5ce7 40%, #5b3fb8 70%, #4c1d95 100%)',
+                  background: 'linear-gradient(135deg, #c084fc 0%, #818cf8 25%, #7c5ce7 50%, #6d28d9 75%, #4c1d95 100%)',
                   boxShadow: '0 20px 56px rgba(124,92,231,0.4), 0 0 0 20px rgba(124,92,231,0.03)',
                   animation: 'breathe 3s ease-in-out infinite',
                 }}
@@ -307,17 +309,24 @@ export function TranslatePage() {
 
             {/* 浮动粒子 */}
             <div className="absolute pointer-events-none" style={{ width: 360, height: 360 }}>
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="absolute w-1.5 h-1.5 rounded-full"
-                  style={{
-                    background: i % 2 === 0 ? 'rgba(124,92,231,0.18)' : 'rgba(91,63,184,0.12)',
-                    left: `${15 + Math.random() * 65}%`,
-                    top: `${8 + Math.random() * 75}%`,
-                    width: `${4 + Math.random() * 6}px`,
-                    height: `${4 + Math.random() * 6}px`,
-                    animation: `drift ${2.5 + Math.random() * 3}s ease-in-out ${i * 0.35}s infinite`,
-                  }} />
-              ))}
+              {[...Array(10)].map((_, i) => {
+                const seed = i * 137.5;
+                const left = 15 + ((seed * 7.3) % 65);
+                const top = 8 + ((seed * 3.7) % 75);
+                const size = 4 + ((seed * 5.1) % 6);
+                const dur = 2.5 + ((seed * 2.3) % 3);
+                return (
+                  <div key={i} className="absolute rounded-full"
+                    style={{
+                      background: i % 2 === 0 ? 'rgba(124,92,231,0.18)' : 'rgba(91,63,184,0.12)',
+                      left: `${left}%`,
+                      top: `${top}%`,
+                      width: `${size}px`,
+                      height: `${size}px`,
+                      animation: `drift ${dur}s ease-in-out ${i * 0.35}s infinite`,
+                    }} />
+                );
+              })}
             </div>
 
             <h2 className="text-2xl font-bold mb-3 relative z-10" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
@@ -331,9 +340,9 @@ export function TranslatePage() {
       </div>
 
       {/* === Bottom: Main control bar === */}
-      <div className="pt-4 flex items-center gap-3">
+      <div className="pt-4 flex flex-wrap items-center gap-3">
         {/* Start / Pause+Resume+Stop */}
-        <div className="flex-1 flex items-center gap-2.5">
+        <div className="flex-1 flex flex-wrap items-center gap-2.5">
           {sessionActive && (
             <>
               <button onClick={() => send({ type: 'pause_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98] bg-yellow-500 hover:bg-yellow-600">

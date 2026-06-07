@@ -117,18 +117,18 @@ export default function SessionDetailPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between sticky top-0 z-10 py-4" style={{ background: 'rgba(247, 248, 250, 0.85)', backdropFilter: 'blur(12px)' }}>
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between sticky top-0 z-10 py-4 gap-3" style={{ background: 'rgba(247, 248, 250, 0.85)', backdropFilter: 'blur(12px)' }}>
+        <div className="flex items-center gap-3">
           <button onClick={() => router.back()}
-            className="w-9 h-9 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-200 transition-all duration-200 shadow-sm">
+            className="w-9 h-9 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:border-gray-200 transition-all duration-200 shadow-sm shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </button>
           <div>
-            <h2 className="text-lg font-bold text-gray-800">字幕详情</h2>
-            <p className="text-xs text-gray-400">{id?.slice(0, 12)} · 共 {total} 段对话</p>
+            <h2 className="text-base md:text-lg font-bold text-gray-800">字幕详情</h2>
+            <p className="text-[11px] md:text-xs text-gray-400">{id?.slice(0, 12)} · 共 {total} 段对话</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* 音色选择 */}
           <select
             value={selectedVoice}

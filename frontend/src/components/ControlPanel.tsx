@@ -69,7 +69,7 @@ export function ControlPanel() {
             source_text: (msg.entry as any).segment_source || msg.entry.source_text || '',
             translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
             is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now(),
-          }]);
+          }];
         });
       }
       break;

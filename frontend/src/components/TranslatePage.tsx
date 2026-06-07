@@ -275,22 +275,57 @@ export function TranslatePage() {
 
         {/* Empty state — hero area */}
         {!sessionActive && subtitles.length === 0 && (
-          <div className="flex-1 flex items-center justify-center relative">
-            {/* 装饰光晕 */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full opacity-20 pointer-events-none animate-glow"
-              style={{ background: 'radial-gradient(circle, var(--accent), transparent)' }} />
-            <div className="text-center relative z-10">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 12px 40px rgba(124,92,231,0.3)' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5">
+          <div className="flex-1 flex flex-col items-center justify-center relative" style={{ minHeight: 360 }}>
+            {/* 多层波纹动画 */}
+            <div className="relative mb-8">
+              {[1, 2, 3, 4].map((ring) => (
+                <div key={ring} className="absolute inset-0 rounded-full"
+                  style={{
+                    background: 'transparent',
+                    border: '1.5px solid rgba(124,92,231,0.12)',
+                    animation: `ripple 3s ease-out ${ring * 0.5}s infinite`,
+                    transform: 'scale(1)',
+                  }} />
+              ))}
+              {/* 中央麦克风 — 点击开始采集 */}
+              <button onClick={handleStart}
+                className="w-28 h-28 relative z-10 rounded-3xl flex items-center justify-center cursor-pointer transition-all duration-200 active:scale-95"
+                style={{
+                  background: 'linear-gradient(135deg, #a78bfa 0%, #7c5ce7 40%, #5b3fb8 70%, #4c1d95 100%)',
+                  boxShadow: '0 20px 56px rgba(124,92,231,0.4), 0 0 0 20px rgba(124,92,231,0.03)',
+                  animation: 'breathe 3s ease-in-out infinite',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 24px 64px rgba(124,92,231,0.5), 0 0 0 28px rgba(124,92,231,0.06)'; e.currentTarget.style.transform = 'scale(1.03)'; }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 20px 56px rgba(124,92,231,0.4), 0 0 0 20px rgba(124,92,231,0.03)'; e.currentTarget.style.transform = 'scale(1)'; }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" className="relative z-10">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/>
                   <line x1="8" y1="23" x2="16" y2="23"/>
                 </svg>
-              </div>
-              <h2 className="text-xl font-bold mb-2" style={{ color: '#111827' }}>准备好开始翻译</h2>
-              <p className="text-sm mb-6" style={{ color: '#9ca3af' }}>选择语言后点击开始，实时同声传译即刻呈现</p>
+              </button>
             </div>
+
+            {/* 浮动粒子 */}
+            <div className="absolute pointer-events-none" style={{ width: 360, height: 360 }}>
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="absolute w-1.5 h-1.5 rounded-full"
+                  style={{
+                    background: i % 2 === 0 ? 'rgba(124,92,231,0.18)' : 'rgba(91,63,184,0.12)',
+                    left: `${15 + Math.random() * 65}%`,
+                    top: `${8 + Math.random() * 75}%`,
+                    width: `${4 + Math.random() * 6}px`,
+                    height: `${4 + Math.random() * 6}px`,
+                    animation: `drift ${2.5 + Math.random() * 3}s ease-in-out ${i * 0.35}s infinite`,
+                  }} />
+              ))}
+            </div>
+
+            <h2 className="text-2xl font-bold mb-3 relative z-10" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
+              准备好开始翻译
+            </h2>
+            <p className="text-sm mb-4 relative z-10" style={{ color: '#9ca3af', maxWidth: 320, textAlign: 'center', lineHeight: 1.6 }}>
+              点击麦克风开始，实时同声传译即刻呈现
+            </p>
           </div>
         )}
       </div>
@@ -299,16 +334,7 @@ export function TranslatePage() {
       <div className="pt-4 flex items-center gap-3">
         {/* Start / Pause+Resume+Stop */}
         <div className="flex-1 flex items-center gap-2.5">
-          {!sessionActive ? (
-            <button onClick={handleStart}
-              className="flex items-center justify-center gap-2 px-8 py-3 rounded-lg text-white text-[15px] font-semibold transition-all duration-150 active:scale-[0.98] animate-glow"
-              style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 4px 20px rgba(124,92,231,0.35)' }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(124,92,231,0.45)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,92,231,0.35)'; }}>
-              <svg width="10" height="13" viewBox="0 0 10 13" fill="white"><path d="M0 0v13l10-6.5z"/></svg>
-              开始采集
-            </button>
-          ) : (
+          {sessionActive && (
             <>
               <button onClick={() => send({ type: 'pause_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98] bg-yellow-500 hover:bg-yellow-600">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>

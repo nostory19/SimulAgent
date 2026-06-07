@@ -48,7 +48,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
 
   return createPortal((
     <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}>
-      <div className="animate-enter-scale flex rounded-2xl overflow-hidden relative" style={{ width: 640, boxShadow: '0 24px 80px rgba(0,0,0,0.15)' }}>
+      <div className="animate-enter-scale flex flex-col md:flex-row rounded-2xl overflow-hidden relative w-[calc(100vw-32px)] max-w-[640px]" style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.15)' }}>
         {/* 关闭按钮 */}
         <button onClick={onClose}
           className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-10 transition-all"
@@ -59,17 +59,17 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
 
-        {/* ===== 左面板：视觉动画 ===== */}
-        <div className="w-[300px] flex flex-col items-center justify-center relative overflow-hidden" style={{ background: '#1a1d23' }}>
+        {/* ===== 左面板：视觉动画（移动端隐藏） ===== */}
+        <div className="hidden md:flex w-[300px] flex-col items-center justify-center relative overflow-hidden" style={{ background: '#1a1d23' }}>
           {/* 背景纹理 */}
-          <div className="absolute inset-0 opacity-5" style={{
+          <div className="absolute inset-0 opacity-[0.05]" style={{
             backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)',
             backgroundSize: '20px 20px',
           }} />
           {/* 装饰圆 */}
           <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-10"
             style={{ background: 'radial-gradient(circle, #7c5ce7, transparent)' }} />
-          <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full opacity-8"
+          <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full opacity-[0.08]"
             style={{ background: 'radial-gradient(circle, #7c5ce7, transparent)' }} />
 
           {/* Logo */}
@@ -92,7 +92,7 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
         </div>
 
         {/* ===== 右面板：表单 ===== */}
-        <div className="flex-1 flex flex-col justify-center bg-white px-8 py-10">
+        <div className="flex-1 flex flex-col justify-center bg-white px-6 py-8 md:px-8 md:py-10">
           <div className="mb-6">
             <h2 className="text-lg font-bold" style={{ color: '#1a1a1a' }}>{mode === 'login' ? '欢迎回来' : '创建账户'}</h2>
             <p className="text-[12px] mt-1" style={{ color: '#a0a09e' }}>{mode === 'login' ? '登录后查看历史记录和AI总结' : '注册即可使用全部功能'}</p>

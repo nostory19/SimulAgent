@@ -123,27 +123,26 @@ export function TranslatePage() {
         const style = pipWin.document.createElement('style');
         style.textContent = `
           *{margin:0;padding:0;box-sizing:border-box}
-          body{background:linear-gradient(180deg,rgba(8,8,10,.78) 0%,rgba(16,16,18,.72) 100%);
-               color:#e8d59c;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+          body{background:linear-gradient(180deg,rgba(245,245,248,.95) 0%,rgba(235,236,240,.92) 100%);
+               color:#1a1a1a;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
                overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased;
                -moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
           #container{height:100vh;overflow-y:auto;padding:18px 20px;scroll-behavior:smooth}
           .line{margin-bottom:14px;transition:opacity .4s ease;position:relative}
-          .line+.line{padding-top:12px;border-top:1px solid rgba(255,255,255,.04)}
-          .src{color:rgba(255,255,255,.32);font-size:13px;font-weight:400;line-height:1.55;
-               letter-spacing:.01em;margin-bottom:2px;font-style:italic}
-          .tgt{font-size:20px;font-weight:500;line-height:1.6;letter-spacing:.02em;
-               text-shadow:0 1px 2px rgba(0,0,0,.5)}
-          .revised{color:#e8bcc4}
-          .partial-src{color:rgba(255,255,255,.28);font-size:13px;line-height:1.55;
-                       letter-spacing:.01em;margin-bottom:2px;font-style:italic}
-          .partial-tgt{font-size:18px;font-weight:500;color:rgba(255,255,255,.06);line-height:1.6}
-          .partial-tgt.has{color:#e8d59c}
+          .line+.line{padding-top:12px;border-top:1px solid rgba(0,0,0,.04)}
+          .src{color:rgba(0,0,0,.35);font-size:13px;font-weight:400;line-height:1.55;
+               letter-spacing:.01em;margin-bottom:2px}
+          .tgt{font-size:20px;font-weight:500;line-height:1.6;letter-spacing:.02em;color:#1a1a1a}
+          .revised{color:#c17d8b}
+          .partial-src{color:rgba(0,0,0,.3);font-size:13px;line-height:1.55;
+                       letter-spacing:.01em;margin-bottom:2px}
+          .partial-tgt{font-size:18px;font-weight:500;color:rgba(0,0,0,.08);line-height:1.6}
+          .partial-tgt.has{color:#1a1a1a}
           .cursor{display:inline-block;width:2px;height:1.1em;vertical-align:text-bottom;
-                  margin-left:3px;background:#e8d59c;border-radius:1px;
+                  margin-left:3px;background:rgba(124,92,231,.3);border-radius:1px;
                   animation:cursorBlink 1s steps(2) infinite}
           .dot{display:inline-block;width:3px;height:3px;border-radius:50%;
-               background:rgba(255,255,255,.2);margin:0 2px;animation:dotBounce 1.4s infinite}
+               background:rgba(124,92,231,.2);margin:0 2px;animation:dotBounce 1.4s infinite}
           .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
           @keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
           @keyframes dotBounce{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:.6;transform:translateY(-3px)}}
@@ -223,7 +222,22 @@ export function TranslatePage() {
 
   // === RENDER ===
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100dvh - 80px)' }}>
+    <div className="flex flex-col flex-1 min-h-0 relative overflow-hidden">
+      {/* 全屏水波纹背景 */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((ring) => (
+          <div key={ring} className="absolute rounded-full"
+            style={{
+              left: '50%', top: '50%',
+              width: `${ring * 18}vmax`, height: `${ring * 18}vmax`,
+              marginLeft: `-${ring * 9}vmax`, marginTop: `-${ring * 9}vmax`,
+              border: '1.5px solid rgba(124,92,231,0.06)',
+              animation: `rippleBg ${8 + ring * 1.5}s ease-out ${ring * 1.2}s infinite`,
+              transform: 'scale(0.5)',
+              opacity: 0,
+            }} />
+        ))}
+      </div>
       {/* === Top: Compact toolbar === */}
       <div className="flex items-center gap-3 pb-4 flex-wrap">
         <div className="flex items-center gap-2 flex-1 flex-wrap">
@@ -289,28 +303,31 @@ export function TranslatePage() {
           </div>
         )}
 
-        {/* Subtitle area */}
-        <div className="flex-1 min-h-0">
-          <SubtitleWindow subtitles={subtitles} displayMode={displayMode} fontSize={fontSize} opacity={opacity} />
-        </div>
+        {/* Subtitle area — only when there's content or a session is active */}
+        {(sessionActive || subtitles.length > 0) && (
+          <div className="flex-1 min-h-0">
+            <SubtitleWindow subtitles={subtitles} displayMode={displayMode} fontSize={fontSize} opacity={opacity} />
+          </div>
+        )}
 
         {/* Empty state — hero area */}
         {!sessionActive && subtitles.length === 0 && (
-          <div className="flex-1 flex flex-col items-center justify-center relative" style={{ minHeight: 360 }}>
+          <div className="flex-1 flex flex-col items-center justify-center relative min-h-[240px] overflow-hidden pt-24">
             {/* 多层波纹动画 */}
             <div className="relative mb-8">
-              {[1, 2, 3, 4].map((ring) => (
+              {[1, 2, 3, 4, 5, 6].map((ring) => (
                 <div key={ring} className="absolute inset-0 rounded-full"
                   style={{
                     background: 'transparent',
-                    border: '1.5px solid rgba(124,92,231,0.12)',
-                    animation: `ripple 3s ease-out ${ring * 0.5}s infinite`,
+                    border: '2px solid rgba(124,92,231,0.22)',
+                    boxShadow: '0 0 12px rgba(124,92,231,0.08)',
+                    animation: `ripple 3.5s ease-out ${ring * 0.6}s infinite`,
                     transform: 'scale(1)',
                   }} />
               ))}
               {/* 中央麦克风 — 点击开始采集 */}
               <button onClick={handleStart}
-                className="w-28 h-28 relative z-10 rounded-3xl flex items-center justify-center cursor-pointer transition-all duration-200 active:scale-95"
+                className="w-20 h-20 md:w-28 md:h-28 relative z-10 rounded-2xl md:rounded-3xl flex items-center justify-center cursor-pointer transition-all duration-200 active:scale-95"
                 style={{
                   background: 'linear-gradient(135deg, #c084fc 0%, #818cf8 25%, #7c5ce7 50%, #6d28d9 75%, #4c1d95 100%)',
                   boxShadow: '0 20px 56px rgba(124,92,231,0.4), 0 0 0 20px rgba(124,92,231,0.03)',
@@ -318,7 +335,7 @@ export function TranslatePage() {
                 }}
                 onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 24px 64px rgba(124,92,231,0.5), 0 0 0 28px rgba(124,92,231,0.06)'; e.currentTarget.style.transform = 'scale(1.03)'; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 20px 56px rgba(124,92,231,0.4), 0 0 0 20px rgba(124,92,231,0.03)'; e.currentTarget.style.transform = 'scale(1)'; }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" className="relative z-10">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" className="relative z-10 md:w-10 md:h-10">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/>
                   <line x1="8" y1="23" x2="16" y2="23"/>
@@ -327,7 +344,7 @@ export function TranslatePage() {
             </div>
 
             {/* 浮动粒子 */}
-            <div className="absolute pointer-events-none" style={{ width: 360, height: 360 }}>
+            <div className="absolute pointer-events-none w-[260px] h-[260px] md:w-[360px] md:h-[360px]">
               {[...Array(10)].map((_, i) => {
                 const seed = i * 137.5;
                 const left = 15 + ((seed * 7.3) % 65);
@@ -348,10 +365,10 @@ export function TranslatePage() {
               })}
             </div>
 
-            <h2 className="text-2xl font-bold mb-3 relative z-10" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
+            <h2 className="text-xl md:text-2xl font-bold mb-3 mt-12 relative z-10" style={{ color: '#111827', letterSpacing: '-0.02em' }}>
               准备好开始翻译
             </h2>
-            <p className="text-sm mb-4 relative z-10" style={{ color: '#9ca3af', maxWidth: 320, textAlign: 'center', lineHeight: 1.6 }}>
+            <p className="text-xs md:text-sm mb-4 relative z-10 px-4" style={{ color: '#9ca3af', maxWidth: 320, textAlign: 'center', lineHeight: 1.6 }}>
               点击麦克风开始，实时同声传译即刻呈现
             </p>
           </div>

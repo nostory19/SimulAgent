@@ -242,7 +242,7 @@ export function TranslatePage() {
         {asrText && sessionActive && (
           <div className="mb-3 animate-fade-in" style={{ padding: '8px 12px', borderRadius: 'var(--radius)', background: 'var(--accent-soft)' }}>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse-ring" style={{ background: 'var(--accent)' }} />
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse-ring" style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)' }} />
               <span className="text-[12px] font-medium tracking-wide" style={{ color: 'var(--accent-text)' }}>聆听中</span>
             </div>
             <p className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text)' }}>{asrText}</p>
@@ -273,13 +273,23 @@ export function TranslatePage() {
           <SubtitleWindow subtitles={subtitles} displayMode={displayMode} fontSize={fontSize} opacity={opacity} />
         </div>
 
-        {/* Empty state */}
+        {/* Empty state — hero area */}
         {!sessionActive && subtitles.length === 0 && (
-          <div className="flex-1 flex items-center justify-center" style={{ color: 'var(--text-tertiary)' }}>
-            <div className="text-center">
-              <div className="text-4xl mb-4 opacity-30">🎙</div>
-              <p className="text-sm font-medium mb-1">准备好开始翻译</p>
-              <p className="text-xs">选择语言后点击下方开始按钮</p>
+          <div className="flex-1 flex items-center justify-center relative">
+            {/* 装饰光晕 */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full opacity-20 pointer-events-none animate-glow"
+              style={{ background: 'radial-gradient(circle, var(--accent), transparent)' }} />
+            <div className="text-center relative z-10">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-2xl flex items-center justify-center"
+                style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 12px 40px rgba(124,92,231,0.3)' }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/>
+                  <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold mb-2" style={{ color: '#111827' }}>准备好开始翻译</h2>
+              <p className="text-sm mb-6" style={{ color: '#9ca3af' }}>选择语言后点击开始，实时同声传译即刻呈现</p>
             </div>
           </div>
         )}
@@ -291,10 +301,10 @@ export function TranslatePage() {
         <div className="flex-1 flex items-center gap-2.5">
           {!sessionActive ? (
             <button onClick={handleStart}
-              className="flex items-center justify-center gap-2 px-8 py-3 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98]"
-              style={{ background: 'var(--accent)' }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-hover)')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}>
+              className="flex items-center justify-center gap-2 px-8 py-3 rounded-lg text-white text-[15px] font-semibold transition-all duration-150 active:scale-[0.98] animate-glow"
+              style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 4px 20px rgba(124,92,231,0.35)' }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 28px rgba(124,92,231,0.45)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,92,231,0.35)'; }}>
               <svg width="10" height="13" viewBox="0 0 10 13" fill="white"><path d="M0 0v13l10-6.5z"/></svg>
               开始采集
             </button>
@@ -305,7 +315,7 @@ export function TranslatePage() {
                 暂停
               </button>
               <button onClick={() => send({ type: 'resume_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98]"
-                style={{ background: 'var(--accent)' }}
+                style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-hover)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}>
                 <svg width="10" height="13" viewBox="0 0 10 13" fill="white"><path d="M0 0v13l10-6.5z"/></svg>

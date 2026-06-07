@@ -34,7 +34,8 @@
   <a href="#-features">Features</a> ·
   <a href="#-tech-stack">Tech Stack</a> ·
   <a href="#-quick-start">Quick Start</a> ·
-  <a href="#-project-structure">Project Structure</a>
+  <a href="#-project-structure">Project Structure</a> ·
+  <a href="#-development-workflow">Workflow</a>
 </p>
 
 ---
@@ -175,6 +176,34 @@ simulagent/
 │       ├── hooks/             # Custom hooks (useWebSocket, useAuth)
 │       └── lib/               # Utilities (tts.ts)
 └── specs/                     # Design documents
+```
+
+## Development Workflow
+
+This project follows a **Spec-Driven Development** approach powered by [Speckit](https://github.com/anthropics/speckit). Before writing any code, structured design documents are produced to capture requirements, technical research, and architectural decisions — ensuring implementation is grounded in deliberate design.
+
+### Speckit Artifacts
+
+| Document | Phase | Description |
+|----------|-------|-------------|
+| `spec.md` | Requirements | Functional spec, user stories, acceptance criteria |
+| `research.md` | Research | Technical options comparison, selection rationale |
+| `data-model.md` | Design | Data models, entity relationships |
+| `plan.md` | Planning | Phased task breakdown, file-level implementation plan |
+| `contracts/` | Contracts | WebSocket message protocol, REST API specification |
+| `tasks.md` | Execution | Development task checklist and progress tracking |
+| `quickstart.md` | Onboarding | Environment setup and launch guide |
+
+### Process
+
+```
+Requirements (spec.md)
+    ↓
+Technical Research (research.md)  →  Data Model Design (data-model.md)
+    ↓
+Implementation Plan (plan.md)  →  API Contracts (contracts/)
+    ↓
+Code Implementation  →  Task Tracking (tasks.md)
 ```
 
 ## License

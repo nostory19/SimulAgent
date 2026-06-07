@@ -34,7 +34,8 @@
   <a href="#-功能模块">功能模块</a> ·
   <a href="#-技术栈">技术栈</a> ·
   <a href="#-快速开始">快速开始</a> ·
-  <a href="#-项目结构">项目结构</a>
+  <a href="#-项目结构">项目结构</a> ·
+  <a href="#-开发流程">开发流程</a>
 </p>
 
 ---
@@ -174,6 +175,34 @@ simulagent/
 │       ├── hooks/             # 自定义 Hooks (useWebSocket, useAuth)
 │       └── lib/               # 工具库 (tts.ts)
 └── specs/                     # 设计文档
+```
+
+## 开发流程
+
+本项目使用 [Speckit](https://github.com/anthropics/speckit) 驱动的规范优先开发流程（Spec-Driven Development）。在编写任何代码之前，先通过结构化的设计文档完成需求分析、技术调研和架构设计，确保实现有据可依。
+
+### Speckit 产出物
+
+| 文档 | 阶段 | 说明 |
+|------|------|------|
+| `spec.md` | 需求定义 | 功能规范，用户故事，验收标准 |
+| `research.md` | 技术调研 | 方案对比，技术选型依据 |
+| `data-model.md` | 架构设计 | 数据模型，实体关系 |
+| `plan.md` | 实施计划 | 分阶段任务拆解，文件清单 |
+| `contracts/` | 接口契约 | WebSocket 消息协议，REST API 规范 |
+| `tasks.md` | 任务跟踪 | 开发任务清单与进度 |
+| `quickstart.md` | 快速上手 | 环境配置与启动指南 |
+
+### 流程
+
+```
+需求定义 (spec.md)
+    ↓
+技术调研 (research.md)  →  数据模型设计 (data-model.md)
+    ↓
+实施计划 (plan.md)  →  接口契约 (contracts/)
+    ↓
+编码实现  →  任务跟踪 (tasks.md)
 ```
 
 ## License

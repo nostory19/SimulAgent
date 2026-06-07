@@ -84,10 +84,10 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         {/* Header */}
         <header className="h-11 flex items-center justify-between px-5 shrink-0 relative z-30"
           style={{ background: 'rgba(250,250,247,0.8)', backdropFilter: 'blur(12px)' }}>
-          <div className="flex items-center gap-1.5 text-[12.5px]">
+          <div className="flex items-center gap-1.5 text-[13px]">
             <span style={{ color: 'var(--text-tertiary)' }}>SimulAgent</span>
             <span style={{ color: 'var(--text-tertiary)' }}>/</span>
-            <span style={{ color: 'var(--text)', fontWeight: 500 }}>{pageTitle}</span>
+            <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pageTitle}</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>简体中文</span>

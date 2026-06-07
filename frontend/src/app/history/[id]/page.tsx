@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { TranslationEntry, SubtitleListResponse } from '@/types';
 import Pagination from '@/components/Pagination';
-import { speak, stopPlayback } from '@/lib/tts';
+import { speak, stopPlayback, prefetchTts } from '@/lib/tts';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
 
@@ -21,7 +21,7 @@ export default function SessionDetailPage() {
 
   // TTS 播放状态
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [selectedVoice, setSelectedVoice] = useState<string>('冰糖');
+  const [selectedVoice, setSelectedVoice] = useState<string>('茉莉');
 
   // 从 localStorage 恢复音色选择
   useEffect(() => {
@@ -80,6 +80,20 @@ export default function SessionDetailPage() {
       loadSubtitles(page);
     }
   }, [viewMode, loadSubtitles, loadAllSubtitles, page]);
+
+  // 预取当前可见字幕的 TTS 音频
+  useEffect(() => {
+    const items = viewMode === 'full_transcript' ? fullSubtitles : subtitles;
+    if (items.length === 0) return;
+    // 延迟预取，避免阻塞渲染
+    const timer = setTimeout(() => {
+      for (const item of items) {
+        if (item.source_text) prefetchTts(item.source_text, selectedVoice);
+        if (item.translated_text) prefetchTts(item.translated_text, selectedVoice);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [subtitles, fullSubtitles, selectedVoice, viewMode]);
 
   const handleViewModeChange = useCallback((mode: typeof viewMode) => {
     setViewMode(mode);
@@ -166,6 +180,7 @@ export default function SessionDetailPage() {
                     <span className="text-[11px] text-gray-300">{total} 段</span>
                     <button
                       onClick={() => handlePlay(fullSourceText, 'full-src')}
+                      onMouseEnter={() => prefetchTts(fullSourceText, selectedVoice)}
                       className={`ml-auto w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 ${
                         playingId === 'full-src'
                           ? 'text-purple-600 bg-purple-50 animate-pulse'
@@ -190,6 +205,7 @@ export default function SessionDetailPage() {
                   <span className="text-[11px] text-gray-300">{total} 段</span>
                   <button
                     onClick={() => handlePlay(fullTranslatedText, 'full-tgt')}
+                    onMouseEnter={() => prefetchTts(fullTranslatedText, selectedVoice)}
                     className={`ml-auto w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200 ${
                       playingId === 'full-tgt'
                         ? 'text-purple-600 bg-purple-50 animate-pulse'
@@ -241,6 +257,7 @@ export default function SessionDetailPage() {
                       <p className="text-[13px] text-gray-500 leading-relaxed italic pr-8">{item.source_text}</p>
                       <button
                         onClick={() => handlePlay(item.source_text, `src-${item.id}`)}
+                        onMouseEnter={() => prefetchTts(item.source_text, selectedVoice)}
                         className={`absolute top-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all duration-200 ${
                           playingId === `src-${item.id}`
                             ? 'text-purple-600 bg-purple-50'
@@ -267,6 +284,7 @@ export default function SessionDetailPage() {
                     </p>
                     <button
                       onClick={() => handlePlay(item.translated_text, `tgt-${item.id}`)}
+                      onMouseEnter={() => prefetchTts(item.translated_text, selectedVoice)}
                       className={`absolute top-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all duration-200 ${
                         playingId === `tgt-${item.id}`
                           ? 'text-purple-600 bg-purple-50'

@@ -304,6 +304,11 @@ async def handle_session(websocket: WebSocket):
                 session_stats["segment_count"] = 0
                 TERM_CACHE.clear()
                 TERM_CACHE.update(PRESET_TERMS)
+                # 合并用户自定义术语（前端从术语库获取后传入）
+                user_terms = config.get("glossary_terms", {})
+                if user_terms:
+                    TERM_CACHE.update(user_terms)
+                    print(f"[ws] 已加载 {len(user_terms)} 条用户术语")
 
                 await websocket.send_json({
                     "type": "session_started",

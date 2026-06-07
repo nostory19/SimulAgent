@@ -340,7 +340,8 @@ async def handle_session(websocket: WebSocket):
                 async def poll_smart_translate():
                     """智能同传主循环：音频采集→ASR→智能断句→带上下文流式翻译→术语缓存→渐进精炼。"""
                     full_source = ""         # 全部累积原文
-                    full_translation = ""   # 全部累积译文
+                    full_translation = ""   # 当前段累积译文
+                    all_translations: list[str] = []  # 所有已确认段的译文历史
                     untranslated = ""       # 上次翻译后新增的原文
                     context_history: list[dict] = []  # 最近3句上下文
                     last_audio_time = time.time()
@@ -437,10 +438,15 @@ async def handle_session(websocket: WebSocket):
                                         # 云端模式：每次翻译的是全量文本，直接替换避免重复
                                         # 本地模式：每次翻译的是增量文本，追加到后面
                                         if use_cloud_asr:
+                                            all_translations.append(translation)
                                             full_translation = translation
                                         else:
                                             full_translation += (" " if full_translation else "") + translation
+                                            all_translations.append(translation)
                                         untranslated = ""
+
+                                        # 会话全文译文 = 历史段 + 当前段
+                                        session_transcript = " ".join(all_translations)
 
                                         # ===== 推送累积译文 =====
                                         entry_id = str(uuid.uuid4())
@@ -451,7 +457,7 @@ async def handle_session(websocket: WebSocket):
                                                 "entry": {
                                                     "id": entry_id,
                                                     "source_text": full_source,
-                                                    "translated_text": full_translation,
+                                                    "translated_text": session_transcript,
                                                     "segment_source": to_translate,
                                                     "segment_translation": translation,
                                                     "is_revised": False,
@@ -531,9 +537,12 @@ async def handle_session(websocket: WebSocket):
                                             to_translate, websocket, _ctx2, source_lang, target_lang
                                         )
                                         if use_cloud_asr:
+                                            all_translations.append(translation)
                                             full_translation = translation
                                         else:
                                             full_translation += (" " if full_translation else "") + translation
+                                            all_translations.append(translation)
+                                        session_transcript = " ".join(all_translations)
                                         context_history.append({
                                             "source": to_translate,
                                             "translation": translation,
@@ -546,7 +555,7 @@ async def handle_session(websocket: WebSocket):
                                                 "entry": {
                                                     "id": str(uuid.uuid4()),
                                                     "source_text": full_source,
-                                                    "translated_text": full_translation,
+                                                    "translated_text": session_transcript,
                                                     "segment_source": to_translate,
                                                     "segment_translation": translation,
                                                     "is_revised": False,

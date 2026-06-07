@@ -5,3 +5,4 @@ from .transcription import TranscriptionSegment
 from .translation import TranslationEntry
 from .terminology import TerminologyEntry
 from .summary import SessionSummary
+from .user import User

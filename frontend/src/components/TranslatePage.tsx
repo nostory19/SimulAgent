@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ServerMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { useAuth } from '../hooks/useAuth';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
 import { LangSelect } from './LangSelect';
 
@@ -12,6 +13,10 @@ interface DeviceGroup { label: string; devices: AudioDevice[]; }
 export function TranslatePage() {
   const bcRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => { bcRef.current = new BroadcastChannel('simulagent_subtitles'); return () => bcRef.current?.close(); }, []);
+
+  const { refreshUser } = useAuth();
+  const refreshUserRef = useRef(refreshUser);
+  refreshUserRef.current = refreshUser;
 
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
@@ -62,7 +67,7 @@ export function TranslatePage() {
         break;
       }
       case 'revision': setSubtitles(prev => prev.map(s => s.id === msg.entry_id ? { ...s, translated_text: msg.new_translation, is_revised: true } : s)); break;
-      case 'session_ended': setSessionActive(false); break;
+      case 'session_ended': setSessionActive(false); refreshUserRef.current(); break;
       case 'error': console.error('WS error:', msg.message); break;
     }
   }, [setAsrTextSync]);

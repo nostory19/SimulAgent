@@ -17,11 +17,12 @@ import uuid
 from datetime import datetime, timezone
 from fastapi import WebSocket, WebSocketDisconnect
 from openai import AsyncOpenAI
-from sqlalchemy import update as sql_update
+from sqlalchemy import update as sql_update, select
 from ..agents.revision_agent import check_and_revise
 from ..capture.system_audio import AudioCapture
 from ..models.database import async_session
 from ..models.session import CaptureSession
+from ..models.user import User
 from ..models.transcription import TranscriptionSegment
 from ..models.translation import TranslationEntry
 from ..asr.stream_buffer import AudioBuffer
@@ -323,9 +324,24 @@ async def handle_session(websocket: WebSocket):
 
                 # ===== 数据库：创建会话记录 =====
                 db_session_started_at = datetime.now(timezone.utc)
+
+                # 通过 auth token 关联用户
+                user_id = None
+                user_token = config.get("token", "")
+                if user_token:
+                    try:
+                        async with async_session() as db:
+                            result = await db.execute(select(User).where(User.token == user_token))
+                            u = result.scalar_one_or_none()
+                            if u:
+                                user_id = u.id
+                    except Exception:
+                        pass
+
                 async with async_session() as db:
                     db_session = CaptureSession(
                         id=session_id,
+                        user_id=user_id,
                         title=config.get("title"),
                         source_language=source_lang,
                         target_language=target_lang,

@@ -3,7 +3,7 @@ import uuid
 import hashlib
 import secrets
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Column, String, Integer, DateTime
 from .database import Base
 
 
@@ -19,6 +19,7 @@ class User(Base):
     username = Column(String(100), nullable=False)
     password_hash = Column(String(128), nullable=False)
     token = Column(String(64), unique=True, nullable=True)  # 登录会话token
+    quota_seconds = Column(Integer, nullable=False, default=3600)  # 免费额度（秒），默认60分钟
     created_at = Column(DateTime, nullable=False, default=_utcnow)
 
     @staticmethod

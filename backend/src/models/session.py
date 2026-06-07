@@ -28,6 +28,7 @@ class CaptureSession(Base):
 
     # ===== 基本标识 =====
     id = Column(String(36), primary_key=True, default=_gen_uuid)
+    user_id = Column(String(36), nullable=True, index=True)  # 关联用户（登录用户才有）
     title = Column(String(255), nullable=True)  # 用户自定义标题或自动生成
 
     # ===== 语言配置 =====

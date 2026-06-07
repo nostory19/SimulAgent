@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CaptureSession, SessionListResponse } from '@/types';
+import Pagination from '@/components/Pagination';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
 
@@ -10,18 +11,23 @@ export default function HistoryPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<CaptureSession[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 10;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (p: number) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/v1/sessions`);
+      const offset = (p - 1) * pageSize;
+      const res = await fetch(`${API}/api/v1/sessions?limit=${pageSize}&offset=${offset}`);
       const data: SessionListResponse = await res.json();
       setSessions(data.sessions);
+      setTotal(data.total);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(page); }, [load, page]);
 
   const statusConfig: Record<string, { label: string; dot: string; bg: string; text: string }> = {
     active: { label: '进行中', dot: 'bg-green-400', bg: 'bg-green-50', text: 'text-green-600' },
@@ -44,7 +50,7 @@ export default function HistoryPage() {
           <h2 className="text-lg font-bold text-gray-800">字幕记录</h2>
           <p className="text-xs text-gray-400 mt-0.5">所有会话的完整转录和翻译记录</p>
         </div>
-        <button onClick={load} disabled={loading}
+        <button onClick={() => load(page)} disabled={loading}
           className="flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors duration-200 px-3 py-1.5 rounded-xl hover:bg-gray-50">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={loading ? 'animate-spin' : ''}>
             <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
@@ -105,6 +111,11 @@ export default function HistoryPage() {
           })}
         </div>
       </div>
+
+      {/* 分页 */}
+      {sessions.length > 0 && (
+        <Pagination total={total} page={page} pageSize={pageSize} onPageChange={setPage} />
+      )}
 
       {sessions.length === 0 && !loading && (
         <div className="text-center py-16">

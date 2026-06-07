@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import type { TranslationEntry, SubtitleListResponse } from '@/types';
+import Pagination from '@/components/Pagination';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
 
@@ -12,14 +13,24 @@ export default function SessionDetailPage() {
   const [subtitles, setSubtitles] = useState<TranslationEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 20;
 
-  useEffect(() => {
+  const loadSubtitles = useCallback(async (p: number) => {
     if (!id) return;
-    fetch(`${API}/api/v1/sessions/${id}/subtitles?limit=500&order=asc`)
-      .then(r => r.json())
-      .then((data: SubtitleListResponse) => setSubtitles(data.subtitles || []))
-      .finally(() => setLoading(false));
+    setLoading(true);
+    try {
+      const offset = (p - 1) * pageSize;
+      const res = await fetch(`${API}/api/v1/sessions/${id}/subtitles?limit=${pageSize}&offset=${offset}&order=asc`);
+      const data: SubtitleListResponse = await res.json();
+      setSubtitles(data.subtitles || []);
+      setTotal(data.total);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }, [id]);
+
+  useEffect(() => { loadSubtitles(page); }, [loadSubtitles, page]);
 
   if (loading) {
     return (
@@ -43,7 +54,7 @@ export default function SessionDetailPage() {
           </button>
           <div>
             <h2 className="text-lg font-bold text-gray-800">字幕详情</h2>
-            <p className="text-xs text-gray-400">{id?.slice(0, 12)} · {subtitles.length} 段对话</p>
+            <p className="text-xs text-gray-400">{id?.slice(0, 12)} · 共 {total} 段对话</p>
           </div>
         </div>
         {/* View mode toggle */}
@@ -71,7 +82,7 @@ export default function SessionDetailPage() {
                   ? 'bg-pink-50 text-pink-500 ring-1 ring-pink-200'
                   : 'bg-gray-50 text-gray-400 group-hover:bg-gray-100'
               }`}>
-                {i + 1}
+                {(page - 1) * pageSize + i + 1}
               </div>
             </div>
 
@@ -124,7 +135,12 @@ export default function SessionDetailPage() {
           </div>
         ))}
 
-        {subtitles.length === 0 && (
+        {/* 分页 */}
+        {subtitles.length > 0 && (
+          <Pagination total={total} page={page} pageSize={pageSize} onPageChange={setPage} />
+        )}
+
+        {subtitles.length === 0 && !loading && (
           <div className="text-center py-16">
             <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-gray-50 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5">

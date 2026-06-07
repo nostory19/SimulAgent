@@ -87,7 +87,95 @@ export function TranslatePage() {
   }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice]);
 
   const handleStop = useCallback(() => { send({ type: 'stop_session' }); setSessionActive(false); }, [send]);
-  const openPopup = () => {
+  const pipWindowRef = useRef<any>(null);
+
+  const openPopup = async () => {
+    // 优先使用 Document PiP API（Chrome 116+）
+    if ('documentPictureInPicture' in window) {
+      try {
+        const pipWin = await (window as any).documentPictureInPicture.requestWindow({
+          width: 420, height: 320,
+        });
+        pipWindowRef.current = pipWin;
+
+        // 注入样式 + HTML
+        const style = pipWin.document.createElement('style');
+        style.textContent = `
+          *{margin:0;padding:0;box-sizing:border-box}
+          body{background:rgba(18,18,20,0.92);color:#f0d78c;font-family:Inter,system-ui,sans-serif;
+               overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased}
+          #container{height:100vh;overflow-y:auto;padding:16px;scroll-behavior:smooth}
+          .line{margin-bottom:12px;transition:opacity .5s}
+          .src{color:rgba(255,255,255,.38);font-size:.78em;line-height:1.4;margin-bottom:2px}
+          .tgt{font-size:16px;font-weight:500;line-height:1.5}
+          .revised{color:#e8bcc4}
+          .partial-src{color:rgba(255,255,255,.35);font-size:.78em;line-height:1.4;margin-bottom:2px}
+          .partial-tgt{font-size:16px;font-weight:500;color:rgba(255,255,255,.08);line-height:1.5}
+          .partial-tgt.has{color:#f0d78c}
+          .cursor{display:inline-block;width:4px;height:1em;vertical-align:middle;margin-left:2px;
+                  background:rgba(240,215,140,.5);border-radius:1px;animation:blink .8s infinite}
+          @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+          @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        `;
+        pipWin.document.head.appendChild(style);
+
+        const container = pipWin.document.createElement('div');
+        container.id = 'container';
+        pipWin.document.body.appendChild(container);
+
+        // 通过 BroadcastChannel 接收字幕数据
+        const bc = new BroadcastChannel('simulagent_subtitles');
+        let lines: any[] = [];
+        let partialSrc = '', partialTgt = '';
+        let mode = 'bilingual';
+
+        const render = () => {
+          const recent = lines.slice(-20);
+          container.innerHTML = recent.map((l: any, i: number) => {
+            const isLatest = i === recent.length - 1;
+            const stale = isLatest && partialSrc && l.source && !partialSrc.includes(l.source);
+            return `<div class="line" style="opacity:${stale ? 0.35 : 1}">
+              ${mode === 'bilingual' && l.source ? `<div class="src">${l.source}</div>` : ''}
+              <div class="tgt${l.is_revised ? ' revised' : ''}">${l.translation}</div>
+            </div>`;
+          }).join('') + (partialSrc || partialTgt ? `<div class="line">
+            ${mode === 'bilingual' && partialSrc ? `<div class="partial-src">${partialSrc}</div>` : ''}
+            <div class="partial-tgt${partialTgt ? ' has' : ''}">
+              ${partialTgt || '...'}<span class="${partialTgt ? 'cursor' : ''}"></span>
+            </div>
+          </div>` : '');
+
+          requestAnimationFrame(() => {
+            container.scrollTop = container.scrollHeight;
+          });
+        };
+
+        bc.onmessage = (e: any) => {
+          const d = e.data;
+          if (d.type === 'subtitles') {
+            lines = (d.subtitles || []).map((s: any) => ({
+              id: s.id, source: s.source_text || '', translation: s.translated_text || '', is_revised: s.is_revised || false,
+            }));
+          } else if (d.type === 'partial') {
+            partialSrc = d.source || ''; partialTgt = d.translation || '';
+          } else if (d.type === 'settings' && d.displayMode) {
+            mode = d.displayMode;
+          }
+          render();
+        };
+        render();
+
+        // PiP 窗口关闭时清理
+        pipWin.addEventListener('pagehide', () => {
+          bc.close();
+          pipWindowRef.current = null;
+        });
+        return;
+      } catch (e) {
+        console.log('Document PiP not available, fallback to popup');
+      }
+    }
+    // 降级方案：window.open
     const w = 400, h = 280;
     window.open('/popup', 'simulagent-pip',
       `width=${w},height=${h},top=${screen.height - h - 80},left=${screen.width - w - 40},resizable=yes,alwaysOnTop=yes,toolbar=no,menubar=no,location=no,status=no,scrollbars=no`);

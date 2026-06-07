@@ -163,36 +163,39 @@ export default function GlossaryPage() {
         ) : (
           <div>
             {/* 表头 */}
-            <div className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-2.5 text-[11px] font-medium text-gray-400 border-b"
+            <div className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-5 py-2.5 text-[11px] font-medium text-gray-400 border-b"
               style={{ borderColor: 'var(--border-light)' }}>
               <span>原文</span>
-              <span>译文</span>
-              <span>领域</span>
-              <span className="text-right">命中</span>
+              <span className="hidden md:block">译文</span>
+              <span className="hidden md:block">领域</span>
+              <span className="hidden md:block text-right">命中</span>
               <span className="w-16" />
             </div>
             {/* 行 */}
             {terms.map((term) => (
               <div key={term.id}
-                className="grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 items-center px-5 py-3 text-[13px] border-b last:border-b-0 hover:bg-gray-50 transition-colors"
+                className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_1fr_auto_auto_auto] gap-4 items-center px-5 py-3 text-[13px] border-b last:border-b-0 hover:bg-gray-50 transition-colors"
                 style={{ borderColor: 'var(--border-light)' }}>
-                <span className="font-medium text-gray-800 truncate">{term.source_term}</span>
-                <span className="text-gray-600 truncate">{term.standard_translation}</span>
-                <span className="text-[11px]">
+                <div className="min-w-0">
+                  <span className="font-medium text-gray-800 truncate block">{term.source_term}</span>
+                  <span className="text-gray-600 truncate block md:hidden text-[12px] mt-0.5">{term.standard_translation}</span>
+                </div>
+                <span className="text-gray-600 truncate hidden md:block">{term.standard_translation}</span>
+                <span className="text-[11px] hidden md:block">
                   {term.domain ? (
                     <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{term.domain}</span>
                   ) : (
                     <span className="text-gray-300">—</span>
                   )}
                 </span>
-                <span className="text-right text-[12px] text-gray-400 tabular-nums">{term.hit_count}</span>
+                <span className="text-right text-[12px] text-gray-400 tabular-nums hidden md:block">{term.hit_count}</span>
                 <div className="flex items-center gap-1 w-16 justify-end">
                   <button onClick={() => openEdit(term)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                    className="w-8 h-8 md:w-7 md:h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
                   <button onClick={() => handleDelete(term.id)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    className="w-8 h-8 md:w-7 md:h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </div>

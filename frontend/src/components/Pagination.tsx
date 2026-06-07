@@ -88,7 +88,7 @@ export default function Pagination({ total, page, pageSize, onPageChange }: Pagi
               <button
                 key={p}
                 onClick={() => onPageChange(p)}
-                className={`w-7 h-7 flex items-center justify-center text-[12px] font-medium rounded-lg
+                className={`w-8 h-8 md:w-7 md:h-7 flex items-center justify-center text-[12px] font-medium rounded-lg
                   transition-all duration-200 ${
                     p === page
                       ? 'bg-gray-800 text-white shadow-sm'

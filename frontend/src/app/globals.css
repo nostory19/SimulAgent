@@ -47,6 +47,11 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* 移动端基准字号放大，提升可读性 */
+@media (max-width: 767px) {
+  html { font-size: 15px; }
+}
+
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 8px; }
@@ -58,6 +63,7 @@ body {
 @keyframes enter-scale { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes glow-pulse { 0%,100%{box-shadow:0 0 20px var(--accent-glow)} 50%{box-shadow:0 0 40px rgba(124,92,231,.25)} }
 @keyframes ripple { 0%{transform:scale(0.8);opacity:0.6} 100%{transform:scale(2.2);opacity:0} }
+@keyframes rippleBg { 0%{transform:scale(0.5);opacity:0} 20%{opacity:0.5} 100%{transform:scale(1.5);opacity:0} }
 @keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
 @keyframes drift { 0%,100%{transform:translateY(0) scale(1);opacity:0.3} 50%{transform:translateY(-12px) scale(1.5);opacity:0.7} }
 

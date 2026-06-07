@@ -36,7 +36,7 @@ function UserMenu() {
   return (
     <div className="relative">
       <button onClick={handleClick}
-        className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-semibold text-white transition-all duration-150 hover:ring-2 hover:ring-offset-1"
+        className="w-8 h-8 md:w-7 md:h-7 rounded-full flex items-center justify-center text-[12px] font-semibold text-white transition-all duration-150 hover:ring-2 hover:ring-offset-1"
         style={{ background: user ? 'linear-gradient(135deg, #7c5ce7, #5b3fb8)' : '#c4c0b8' }}>
         {user ? user.username.charAt(0).toUpperCase() : '?'}
       </button>
@@ -131,7 +131,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2 text-[14px]">
             {/* 移动端汉堡菜单 */}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              className="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
               </svg>

@@ -83,9 +83,18 @@ export function TranslatePage() {
 
   useEffect(() => { if (!sessionActive) { setLatency(0); return; } const iv = setInterval(() => setLatency(prev => +(prev + 0.1).toFixed(1)), 100); return () => clearInterval(iv); }, [sessionActive]);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback(async () => {
     setSubtitles([]); setAsrTextSync(''); setPartialTranslation(''); if (!connected) connect();
-    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice } });
+    let glossaryTerms: Record<string, string> = {};
+    try {
+      const glossaryEnabled = localStorage.getItem('glossary_enabled') !== 'false';
+      if (glossaryEnabled) {
+        const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
+        const res = await fetch(`${API}/api/v1/glossary/export`);
+        if (res.ok) glossaryTerms = await res.json();
+      }
+    } catch {}
+    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice, glossary_terms: glossaryTerms } });
   }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice, setAsrTextSync]);
 
   const handleStop = useCallback(() => { send({ type: 'stop_session' }); setSessionActive(false); }, [send]);

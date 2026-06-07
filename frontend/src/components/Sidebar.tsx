@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const menu = [
@@ -10,47 +11,65 @@ const menu = [
   { href: '/settings', label: '设置', icon: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.33-.02-.64-.06-.94l2.02-1.58c.18-.14.23-.38.12-.56l-1.89-3.28c-.12-.19-.36-.26-.56-.18l-2.38.96c-.5-.38-1.06-.68-1.66-.88L14.45 3.5c-.04-.2-.2-.34-.4-.34h-3.78c-.2 0-.36.14-.4.34l-.3 2.52c-.6.2-1.16.5-1.66.88l-2.38-.96c-.2-.08-.44-.01-.56.18l-1.89 3.28c-.12.19-.07.42.12.56l2.02 1.58c-.04.3-.06.61-.06.94 0 .33.02.64.06.94l-2.02 1.58c-.18.14-.23.38-.12.56l1.89 3.28c.12.19.36.26.56.18l2.38-.96c.5.38 1.06.68 1.66.88l.3 2.52c.04.2.2.34.4.34h3.78c.2 0 .36-.14.4-.34l.3-2.52c.6-.2 1.16-.5 1.66-.88l2.38.96c.2.08.44.01.56-.18l1.89-3.28c.12-.19.07-.42-.12-.56l-2.02-1.58zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="min-h-screen flex flex-col items-center py-8 px-3 w-[72px] shrink-0"
-      style={{ background: '#f7f8fd' }}>
-      {/* Logo */}
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-8"
-        style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 4px 16px rgba(124,92,231,0.3)' }}>
-        <span className="text-white text-sm font-bold">S</span>
-      </div>
+    <>
+      {/* Mobile overlay backdrop */}
+      {open && (
+        <div className="fixed inset-0 bg-black/20 z-40 md:hidden" onClick={onClose} />
+      )}
 
-      {/* Navigation — icon above label, vertical centered */}
-      <nav className="flex-1 flex flex-col items-center gap-7 pt-2">
-        {menu.map((item) => {
-          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-          return (
-            <a key={item.href} href={item.href} title={item.label}
-              className="flex flex-col items-center gap-1 group transition-all duration-150"
-              style={{ color: active ? '#7c5ce7' : '#9ca3af' }}>
-              {/* Icon wrapper */}
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 ${
-                active ? '' : 'group-hover:bg-gray-100'
-              }`}
-                style={{ background: active ? '#f4f0fe' : undefined }}>
-                <svg width="20" height="20" viewBox="0 0 24 24"
-                  fill={active ? '#7c5ce7' : 'none'}
-                  stroke={active ? '#7c5ce7' : '#9ca3af'} strokeWidth={active ? 1.8 : 1.5}
-                  strokeLinecap="round" strokeLinejoin="round">
-                  <path d={item.icon} />
-                </svg>
-              </div>
-              {/* Label */}
-              <span className="text-[11px] font-medium leading-tight">{item.label}</span>
-            </a>
-          );
-        })}
-      </nav>
+      <aside className={`
+        min-h-screen flex flex-col items-center py-8 px-3 w-[72px] shrink-0
+        bg-[#f7f8fd] z-50
+        max-md:fixed max-md:left-0 max-md:top-0 max-md:shadow-lg
+        max-md:transition-transform max-md:duration-200
+        ${open ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'}
+      `}>
+        {/* Logo */}
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-8"
+          style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 4px 16px rgba(124,92,231,0.3)' }}>
+          <span className="text-white text-sm font-bold">S</span>
+        </div>
 
-      {/* Footer version */}
-      <span className="text-[10px] mt-auto" style={{ color: '#d1d5db' }}>v0.2</span>
-    </aside>
+        {/* Navigation — icon above label, vertical centered */}
+        <nav className="flex-1 flex flex-col items-center gap-7 pt-2">
+          {menu.map((item) => {
+            const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+            return (
+              <Link key={item.href} href={item.href} title={item.label}
+                onClick={onClose}
+                className="flex flex-col items-center gap-1 group transition-all duration-150"
+                style={{ color: active ? '#7c5ce7' : '#9ca3af' }}>
+                {/* Icon wrapper */}
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 ${
+                  active ? '' : 'group-hover:bg-gray-100'
+                }`}
+                  style={{ background: active ? '#f4f0fe' : undefined }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24"
+                    fill={active ? '#7c5ce7' : 'none'}
+                    stroke={active ? '#7c5ce7' : '#9ca3af'} strokeWidth={active ? 1.8 : 1.5}
+                    strokeLinecap="round" strokeLinejoin="round">
+                    <path d={item.icon} />
+                  </svg>
+                </div>
+                {/* Label */}
+                <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Footer version */}
+        <span className="text-[10px] mt-auto" style={{ color: '#d1d5db' }}>v0.2</span>
+      </aside>
+    </>
   );
 }

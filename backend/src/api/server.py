@@ -11,6 +11,7 @@ from .routes.system import router as system_router
 from .routes.session import router as session_router
 from .routes.summary import router as summary_router
 from .routes.auth import router as auth_router
+from .routes.glossary import router as glossary_router
 from .ws_session import handle_session
 
 # FastAPI 应用实例
@@ -47,6 +48,7 @@ app.include_router(system_router)
 app.include_router(session_router)
 app.include_router(summary_router)
 app.include_router(auth_router)
+app.include_router(glossary_router)
 
 
 @app.get("/api/v1/health")

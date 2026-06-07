@@ -40,6 +40,9 @@
 
 ---
 
+视频链接：
+[七牛云X Engineer auotmedia- SimulAgent 多智能体协同的实时同声传译助手(演示视频)](https://www.bilibili.com/video/BV16LEh6MEyW/?share_source=copy_web&vd_source=87be4ac2ad105d30e96e2f9968099a79)
+
 ## 核心亮点
 
 - **零延迟同传** — 系统级音频捕获 + DashScope 流式 ASR，音频到字幕延迟 ≤3s，流式部分结果每 200-500ms 刷新

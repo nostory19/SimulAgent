@@ -1,71 +1,58 @@
 @import "tailwindcss";
 
+/* === SimulAgent Design System === */
 :root {
-  --green: #7cbd5b;
-  --green-soft: #e8f5e0;
-  --green-deep: #4a8a2e;
-  --pink: #f0a0b0;
-  --pink-soft: #fef0f3;
-  --pink-deep: #d47888;
-  --bg: #f7f8fa;
-  --card: #ffffff;
-  --card-hover: #fcfdfe;
-  --text-primary: #1a1a2e;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
-  --border: #f0f1f3;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --radius-sm: 10px;
-  --radius: 16px;
-  --radius-lg: 20px;
-  --subtitle-bg: rgba(18, 18, 20, 0.9);
+  --accent: #d4a853;
+  --accent-hover: #c49a3d;
+  --accent-soft: #faf5e8;
+  --accent-text: #8b6914;
+  --danger: #c17d8b;
+  --danger-hover: #b06d7a;
+
+  --bg: #fafaf7;
+  --bg-elevated: #f5f4f0;
+  --bg-sidebar: #1c1e22;
+  --text-sidebar: #8c8b87;
+  --text-sidebar-active: #ffffff;
+
+  --text: #1a1a1a;
+  --text-secondary: #696967;
+  --text-tertiary: #a0a09e;
+
+  --border: #e8e6e2;
+  --border-light: #f0eeea;
+
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 }
 
 body {
   background: var(--bg);
-  color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  color: var(--text);
+  font-family: var(--font);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
 }
 
-/* 滚动条 */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 20px; }
-::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+::-webkit-scrollbar-thumb { background: #d8d5cf; border-radius: 8px; }
 
-/* 卡片入场 */
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+*:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
-@keyframes pulse-ring {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 189, 91, 0.25); }
-  50% { box-shadow: 0 0 0 8px rgba(124, 189, 91, 0); }
-}
+@keyframes enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(212,168,83,.25)} 50%{box-shadow:0 0 0 8px rgba(212,168,83,0)} }
 
-@keyframes breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
+.animate-enter { animation: enter 0.2s ease-out both; }
+.animate-fade-in { animation: fade-in 0.15s ease-out both; }
+.animate-pulse-ring { animation: pulse-ring 2s infinite; }
 
-.card-enter {
-  animation: cardIn 0.4s ease-out both;
-}
-.card-enter:nth-child(1) { animation-delay: 0ms; }
-.card-enter:nth-child(2) { animation-delay: 50ms; }
-.card-enter:nth-child(3) { animation-delay: 100ms; }
-.card-enter:nth-child(4) { animation-delay: 150ms; }
-.card-enter:nth-child(5) { animation-delay: 200ms; }
-
-.pulse-ring {
-  animation: pulse-ring 2s infinite;
-}
-
-.breathe {
-  animation: breathe 2s ease-in-out infinite;
+/* Elevated surface — background diff only, no border */
+.surface {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
 }

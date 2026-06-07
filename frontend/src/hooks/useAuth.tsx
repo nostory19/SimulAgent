@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<string | null>;
   register: (email: string, username: string, password: string) => Promise<string | null>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -60,8 +61,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null); localStorage.removeItem('simulagent_user');
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const saved = localStorage.getItem('simulagent_user');
+    if (!saved) return;
+    try {
+      const u = JSON.parse(saved);
+      const res = await fetch(`${API}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${u.token}` } });
+      if (res.ok) {
+        const data: User = await res.json();
+        setUser(data);
+        localStorage.setItem('simulagent_user', JSON.stringify(data));
+      }
+    } catch {}
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

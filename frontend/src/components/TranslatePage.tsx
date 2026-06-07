@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ServerMessage, AudioDevice } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
+import { LangSelect } from './LangSelect';
 
 interface DeviceGroup {
   label: string;
@@ -24,15 +25,6 @@ export function TranslatePage() {
   const [selectedDevice, setSelectedDevice] = useState<number>(-1);
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
 
-  const LANGUAGES = [
-    { code: 'en', flag: '🇺🇸', label: 'English' },
-    { code: 'zh', flag: '🇨🇳', label: '中文' },
-    { code: 'ja', flag: '🇯🇵', label: '日本語' },
-    { code: 'ko', flag: '🇰🇷', label: '한국어' },
-    { code: 'fr', flag: '🇫🇷', label: 'Français' },
-    { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
-    { code: 'es', flag: '🇪🇸', label: 'Español' },
-  ];
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.75);
   const [asrText, setAsrText] = useState('');
@@ -175,19 +167,13 @@ export function TranslatePage() {
             {/* 源语言→目标语言 */}
             <div className="flex items-end gap-2">
               <div className="flex-1">
-                <p className="text-[10px] text-gray-400 font-medium mb-1 ml-1 uppercase tracking-wider">源语言</p>
-                <select className={selectClass + ' w-full'} value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}>
-                  {LANGUAGES.map(l => (<option key={l.code} value={l.code}>{l.flag} {l.label}</option>))}
-                </select>
+                <LangSelect label="源语言" value={sourceLanguage} onChange={setSourceLanguage} />
               </div>
-              <div className="shrink-0 mb-0.5 w-8 h-10 rounded-xl bg-green-50 flex items-center justify-center">
+              <div className="shrink-0 mt-4 w-8 h-10 rounded-xl bg-green-50 flex items-center justify-center">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7cbd5b" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </div>
               <div className="flex-1">
-                <p className="text-[10px] text-gray-400 font-medium mb-1 ml-1 uppercase tracking-wider">目标语言</p>
-                <select className={selectClass + ' w-full'} value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}>
-                  {LANGUAGES.map(l => (<option key={l.code} value={l.code}>{l.flag} {l.label}</option>))}
-                </select>
+                <LangSelect label="目标语言" value={targetLanguage} onChange={setTargetLanguage} />
               </div>
             </div>
             {/* 设备+模式 */}

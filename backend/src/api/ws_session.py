@@ -30,10 +30,15 @@ from ..asr.bailian_asr import BailianRealtimeASR
 import numpy as np
 
 # ===== 翻译提示词模板 =====
-TRANSLATION_SYSTEM = """You are a professional simultaneous interpreter translating English to Simplified Chinese.
-- Produce only the Chinese translation. No explanations.
-- Natural, fluent, native-level Chinese.
-- Keep proper nouns and acronyms in original form."""
+LANG_NAMES = {
+    "en": "English", "zh": "Simplified Chinese", "ja": "Japanese",
+    "ko": "Korean", "fr": "French", "de": "German", "es": "Spanish",
+}
+
+def _get_translation_prompt(source_lang: str, target_lang: str) -> str:
+    src = LANG_NAMES.get(source_lang, "English")
+    tgt = LANG_NAMES.get(target_lang, "Simplified Chinese")
+    return f"You are a professional simultaneous interpreter translating {src} to {tgt}. Rules:\n- Produce only the translation. No explanations or the original text.\n- Use natural, fluent, native-level {tgt}.\n- Preserve proper nouns, product names, and technical acronyms in their original form.\n- Keep the translation concise."
 
 TRANSLATION_WITH_CONTEXT = """Translate to Chinese. Use the context and terminology below for consistency.
 
@@ -149,14 +154,10 @@ def _build_terminology_hint(text: str) -> str:
 
 
 async def _translate_stream(text: str, websocket: WebSocket,
-                             context: list[dict] | None = None) -> str:
+                             context: list[dict] | None = None,
+                             source_lang: str = "en", target_lang: str = "zh") -> str:
     """
     流式翻译：逐 token 推送，注入上下文和术语提示。
-
-    Args:
-        text: 待翻译文本。
-        websocket: WebSocket连接。
-        context: 最近的(source, translation)上下文列表。
     """
     if not text.strip():
         return text
@@ -165,8 +166,8 @@ async def _translate_stream(text: str, websocket: WebSocket,
 
     ctx_text = _build_context_prompt(context or [])
     term_text = _build_terminology_hint(text)
+    system_prompt = _get_translation_prompt(source_lang, target_lang)
 
-    # 用上下文+术语注入prompt vs 简洁prompt
     if context or _extract_terms(text):
         user_msg = TRANSLATION_WITH_CONTEXT.format(
             context=ctx_text, terminology=term_text, text=text
@@ -179,7 +180,7 @@ async def _translate_stream(text: str, websocket: WebSocket,
         stream = await client.chat.completions.create(
             model=model_name,
             messages=[
-                {"role": "system", "content": TRANSLATION_SYSTEM},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg},
             ],
             temperature=0.3,
@@ -207,7 +208,7 @@ async def _translate_stream(text: str, websocket: WebSocket,
         return text
 
 
-async def _translate_text(text: str) -> str:
+async def _translate_text(text: str, source_lang: str = "en", target_lang: str = "zh") -> str:
     """非流式翻译（flush场景）。"""
     if not text.strip():
         return text
@@ -267,6 +268,7 @@ async def handle_session(websocket: WebSocket):
             if msg_type == "start_session":
                 config = msg.get("config", {})
                 source_lang = config.get("source_language", "en")
+                target_lang = config.get("target_language", "zh")
 
                 # 音频设备：指定设备编号或自动检测（-1=auto）
                 dev_idx = config.get("device_index", -1)
@@ -308,7 +310,7 @@ async def handle_session(websocket: WebSocket):
                     "session": {
                         "id": session_id,
                         "source_language": source_lang,
-                        "target_language": "zh",
+                        "target_language": target_lang,
                         "display_mode": config.get("display_mode", "bilingual"),
                     }
                 })
@@ -321,7 +323,7 @@ async def handle_session(websocket: WebSocket):
                         id=session_id,
                         title=config.get("title"),
                         source_language=source_lang,
-                        target_language="zh",
+                        target_language=target_lang,
                         display_mode=config.get("display_mode", "bilingual"),
                         status="active",
                         audio_source=str(dev_idx),
@@ -414,8 +416,8 @@ async def handle_session(websocket: WebSocket):
 
                                         # 云端全量文本不需上下文注入，本地增量需要
                                         _ctx = [] if use_cloud_asr else context_history
-                                        translation = await _translate_stream(to_translate, websocket, _ctx)
-                                        print(f"[zh]  {translation[:80]}...")
+                                        translation = await _translate_stream(to_translate, websocket, _ctx, source_lang, target_lang)
+                                        print(f"[out] {translation[:80]}...")
 
                                         # ===== 更新术语缓存 =====
                                         _update_term_cache(to_translate, translation)
@@ -521,7 +523,7 @@ async def handle_session(websocket: WebSocket):
                                         print(f"[silence] force translate: {to_translate[:60]}...")
                                         _ctx2 = [] if use_cloud_asr else context_history
                                         translation = await _translate_stream(
-                                            to_translate, websocket, _ctx2
+                                            to_translate, websocket, _ctx2, source_lang, target_lang
                                         )
                                         if use_cloud_asr:
                                             full_translation = translation
@@ -574,7 +576,7 @@ async def handle_session(websocket: WebSocket):
                 else:
                     final_text = local_asr.finalize()
                     if final_text:
-                        translation = await _translate_text(final_text)
+                        translation = await _translate_text(final_text, source_lang, target_lang)
                         try:
                             await websocket.send_json({
                                 "type": "translation_complete",

@@ -38,11 +38,14 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       {/* Toggle */}
-      <button onClick={onToggle} className="absolute top-4 -right-2 w-4 h-4 rounded-full border flex items-center justify-center cursor-pointer"
-        style={{ background: 'var(--bg-sidebar-hover)', borderColor: 'rgba(255,255,255,0.08)' }}>
-        <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#8c8b87" strokeWidth="3"
+      <button onClick={onToggle}
+        className="absolute top-4 -right-3.5 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150"
+        style={{ background: '#3a3d44', border: '1.5px solid rgba(255,255,255,0.15)' }}
+        onMouseEnter={e => (e.currentTarget.style.background = '#4a4d55')}
+        onMouseLeave={e => (e.currentTarget.style.background = '#3a3d44')}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth="2"
           style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
-          <path d="M15 18l-6-6 6-6"/>
+          <path d="M14 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
@@ -52,7 +55,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           return (
             <a key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-              className="flex items-center gap-3 text-[12.5px] font-medium transition-all duration-150"
+              className="flex items-center gap-3 text-[14px] font-medium transition-all duration-150"
               style={{
                 padding: collapsed ? '9px 0' : '7px 12px',
                 justifyContent: collapsed ? 'center' : 'flex-start',

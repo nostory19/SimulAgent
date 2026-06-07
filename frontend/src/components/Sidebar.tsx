@@ -61,14 +61,14 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                   </svg>
                 </div>
                 {/* Label */}
-                <span className="text-[11px] font-medium leading-tight">{item.label}</span>
+                <span className="text-[12px] font-medium leading-tight">{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Footer version */}
-        <span className="text-[10px] mt-auto" style={{ color: '#d1d5db' }}>v0.2</span>
+        <span className="text-[11px] mt-auto" style={{ color: '#d1d5db' }}>v0.2</span>
       </aside>
     </>
   );

@@ -66,7 +66,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
           {/* 左侧：当前区域指示 */}
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span>中文（简体）</span>
+            <span>简体中文 (Chinese Simplified)</span>
           </div>
           {/* 右侧：用户菜单 */}
           <UserMenu />

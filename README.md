@@ -20,7 +20,7 @@
 
 <div align="center">
   <h1>SimulAgent</h1>
-  <p><b>基于多智能体协同的实时同声传译 Web 应用</b></p>
+  <p><b>多智能体协同的实时同声传译助手</b></p>
   <p>融合 LangGraph 多 Agent 流水线与流式语音识别，让跨语言沟通零延迟</p>
 </div>
 

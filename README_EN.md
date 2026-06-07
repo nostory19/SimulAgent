@@ -20,7 +20,7 @@
 
 <div align="center">
   <h1>SimulAgent</h1>
-  <p><b>Real-Time Simultaneous Interpretation Web App Powered by Multi-Agent AI</b></p>
+  <p><b>Real-Time Simultaneous Interpretation Assistant with Multi-Agent Collaboration</b></p>
   <p>LangGraph multi-agent pipeline meets streaming ASR for zero-delay cross-language communication</p>
 </div>
 

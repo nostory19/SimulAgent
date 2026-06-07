@@ -18,7 +18,6 @@ export default function SettingsPage() {
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
         <h3 className="text-sm font-semibold text-gray-700">环境配置</h3>
         <div className="text-sm text-gray-500 space-y-1">
-          <p>BAILIAN_API_KEY: {process.env.BAILIAN_API_KEY ? '已配置 ✓' : '未配置 ✗'}</p>
           <p>后端地址：{process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766'}</p>
           <p>WebSocket：{process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8766/ws'}</p>
         </div>

@@ -49,12 +49,14 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
   return createPortal((
     <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}>
       <div className="animate-enter-scale flex rounded-2xl overflow-hidden relative" style={{ width: 640, boxShadow: '0 24px 80px rgba(0,0,0,0.15)' }}>
-        {/* 关闭 */}
-        <button onClick={onClose} className="absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-colors"
-          style={{ color: '#fff' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        {/* 关闭按钮 */}
+        <button onClick={onClose}
+          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center z-10 transition-all"
+          style={{ color: '#6b7280', background: 'rgba(0,0,0,0.06)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.12)'; e.currentTarget.style.color = '#111827'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.06)'; e.currentTarget.style.color = '#6b7280'; }}
+          title="关闭">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
 
         {/* ===== 左面板：视觉动画 ===== */}
@@ -66,14 +68,14 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
           }} />
           {/* 装饰圆 */}
           <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, #d4a853, transparent)' }} />
+            style={{ background: 'radial-gradient(circle, #7c5ce7, transparent)' }} />
           <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full opacity-8"
-            style={{ background: 'radial-gradient(circle, #d4a853, transparent)' }} />
+            style={{ background: 'radial-gradient(circle, #7c5ce7, transparent)' }} />
 
           {/* Logo */}
           <div className="relative z-10 mb-6">
             <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-3"
-              style={{ background: 'linear-gradient(135deg, #d4a853, #b8912e)', boxShadow: '0 8px 32px rgba(212,168,83,0.25)' }}>
+              style={{ background: 'linear-gradient(135deg, #7c5ce7, #b8912e)', boxShadow: '0 8px 32px rgba(212,168,83,0.25)' }}>
               <span className="text-white text-xl font-bold">S</span>
             </div>
             <h2 className="text-white text-[15px] font-semibold text-center tracking-tight">SimulAgent</h2>
@@ -102,13 +104,13 @@ export function AuthModal({ open, onClose }: AuthModalProps) {
             <input className="w-full px-3.5 py-2.5 text-[13px] rounded-lg focus:outline-none" style={inp} type="password" placeholder="密码" value={password} onChange={e => setPassword(e.target.value)} required minLength={4} />
             {error && <p className="text-[12px] text-center" style={{ color: '#c17d8b' }}>{error}</p>}
             <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg text-white text-[13px] font-semibold active:scale-[0.98] transition-all"
-              style={{ background: loading ? '#c4c0b8' : 'linear-gradient(135deg, #d4a853, #b8912e)' }}>{loading ? '处理中...' : mode === 'login' ? '登录' : '注册'}</button>
+              style={{ background: loading ? '#c4c0b8' : 'linear-gradient(135deg, #7c5ce7, #b8912e)' }}>{loading ? '处理中...' : mode === 'login' ? '登录' : '注册'}</button>
           </form>
 
           <div className="mt-5 text-center">
             <button onClick={() => { setMode(m => m === 'login' ? 'register' : 'login'); setError(''); }}
               className="text-[12px] transition-colors" style={{ color: '#a0a09e' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#d4a853'}
+              onMouseEnter={e => e.currentTarget.style.color = '#7c5ce7'}
               onMouseLeave={e => e.currentTarget.style.color = '#a0a09e'}>
               {mode === 'login' ? '没有账户？立即注册' : '已有账户？去登录'}
             </button>

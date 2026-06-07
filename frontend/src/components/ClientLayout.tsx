@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { AuthProvider, useAuth } from '@/hooks/useAuth';
@@ -38,7 +38,7 @@ function UserMenu() {
       {user && open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="animate-enter fixed right-4 top-10 w-44 rounded-lg shadow-md z-50 overflow-hidden"
+          <div className="animate-enter absolute right-0 top-10 w-44 rounded-lg shadow-md z-50 overflow-hidden"
             style={{ background: '#fff', border: '1px solid #e8e6e2' }}>
             <div className="px-3.5 py-3" style={{ borderBottom: '1px solid #f0eeea' }}>
               <p className="text-[13px] font-semibold" style={{ color: '#1a1a1a' }}>{user.username}</p>
@@ -74,6 +74,14 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, loading } = useAuth();
   const [showAuth, setShowAuth] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 路由切换时关闭侧边栏
+  const prevPathnameRef = useRef(pathname);
+  if (prevPathnameRef.current !== pathname) {
+    prevPathnameRef.current = pathname;
+    if (sidebarOpen) setSidebarOpen(false);
+  }
 
   // 悬浮窗无chrome
   if (pathname === '/popup') return <>{children}</>;
@@ -86,23 +94,30 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col min-h-screen">
-        <header className="h-11 flex items-center justify-between px-5 shrink-0 relative z-30"
+        <header className="h-11 flex items-center justify-between px-4 md:px-5 shrink-0 relative z-30"
           style={{ background: 'rgba(250,250,247,0.8)', backdropFilter: 'blur(12px)' }}>
-          <div className="flex items-center gap-1.5 text-[13px]">
+          <div className="flex items-center gap-2 text-[13px]">
+            {/* 移动端汉堡菜单 */}
+            <button onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
             <span style={{ color: '#a0a09e' }}>SimulAgent</span>
             <span style={{ color: '#a0a09e' }}>/</span>
             <span style={{ color: '#1a1a1a', fontWeight: 600 }}>{pageTitle}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px]" style={{ color: '#a0a09e' }}>简体中文</span>
+            <span className="text-[11px] hidden sm:inline" style={{ color: '#a0a09e' }}>简体中文</span>
             <UserMenu />
           </div>
         </header>
 
-        <main className="flex-1 p-6 mx-auto w-full" style={{ maxWidth: 760 }}>
+        <main className="flex-1 p-4 md:p-6 mx-auto w-full" style={{ maxWidth: 760 }}>
           {blocked ? (
             <div className="flex items-center justify-center min-h-[60vh]">
               <div className="text-center space-y-4">

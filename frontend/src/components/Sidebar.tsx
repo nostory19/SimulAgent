@@ -10,78 +10,47 @@ const menu = [
   { href: '/settings', label: '设置', icon: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.33-.02-.64-.06-.94l2.02-1.58c.18-.14.23-.38.12-.56l-1.89-3.28c-.12-.19-.36-.26-.56-.18l-2.38.96c-.5-.38-1.06-.68-1.66-.88L14.45 3.5c-.04-.2-.2-.34-.4-.34h-3.78c-.2 0-.36.14-.4.34l-.3 2.52c-.6.2-1.16.5-1.66.88l-2.38-.96c-.2-.08-.44-.01-.56.18l-1.89 3.28c-.12.19-.07.42.12.56l2.02 1.58c-.04.3-.06.61-.06.94 0 .33.02.64.06.94l-2.02 1.58c-.18.14-.23.38-.12.56l1.89 3.28c.12.19.36.26.56.18l2.38-.96c.5.38 1.06.68 1.66.88l.3 2.52c.04.2.2.34.4.34h3.78c.2 0 .36-.14.4-.34l.3-2.52c.6-.2 1.16-.5 1.66-.88l2.38.96c.2.08.44.01.56-.18l1.89-3.28c.12-.19.07-.42-.12-.56l-2.02-1.58zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z' },
 ];
 
-interface SidebarProps {
-  collapsed: boolean;
-  onToggle: () => void;
-}
-
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
-  const w = collapsed ? 52 : 210;
 
   return (
-    <aside className="min-h-screen flex flex-col relative transition-all duration-200 ease-out"
-      style={{ width: w, background: '#1c1e22', overflow: 'hidden', borderRight: 'none' }}>
+    <aside className="min-h-screen flex flex-col items-center py-8 px-3 w-[72px] shrink-0"
+      style={{ background: '#f7f8fd' }}>
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 pt-7 pb-5"
-        style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}>
-        <div className="w-6 h-6 rounded flex-shrink-0 flex items-center justify-center"
-          style={{ background: 'var(--accent)' }}>
-          <span className="text-white text-[11px] font-bold">S</span>
-        </div>
-        {!collapsed && (
-          <div className="transition-opacity duration-150">
-            <h1 className="text-[13px] font-semibold text-white tracking-tight leading-none">SimulAgent</h1>
-            <p className="text-[10px] mt-1" style={{ color: '#8c8b87' }}>同声传译</p>
-          </div>
-        )}
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-8"
+        style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)', boxShadow: '0 4px 16px rgba(124,92,231,0.3)' }}>
+        <span className="text-white text-sm font-bold">S</span>
       </div>
 
-      {/* Toggle */}
-      <button onClick={onToggle}
-        className="absolute top-4 -right-3.5 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-all duration-150"
-        style={{ background: '#3a3d44', border: '1.5px solid rgba(255,255,255,0.15)' }}
-        onMouseEnter={e => (e.currentTarget.style.background = '#4a4d55')}
-        onMouseLeave={e => (e.currentTarget.style.background = '#3a3d44')}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth="2"
-          style={{ transform: collapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}>
-          <path d="M14 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-2 space-y-0.5 pt-2">
+      {/* Navigation — icon above label, vertical centered */}
+      <nav className="flex-1 flex flex-col items-center gap-7 pt-2">
         {menu.map((item) => {
           const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           return (
-            <a key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-              className="flex items-center gap-3 text-[14px] font-medium transition-all duration-150"
-              style={{
-                padding: collapsed ? '9px 0' : '7px 12px',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                borderRadius: 'var(--radius)',
-                color: active ? '#ffffff' : '#8c8b87',
-                background: active ? 'rgba(212,168,83,0.1)' : 'transparent',
-              }}>
-              <svg width={collapsed ? "15" : "13"} height={collapsed ? "15" : "13"} viewBox="0 0 24 24"
-                fill={active ? 'var(--accent)' : '#8c8b87'} style={{ flexShrink: 0 }}>
-                <path d={item.icon} />
-              </svg>
-              {!collapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {active && <span className="w-1 h-3 rounded-full" style={{ background: 'var(--accent)' }} />}
-                </>
-              )}
+            <a key={item.href} href={item.href} title={item.label}
+              className="flex flex-col items-center gap-1 group transition-all duration-150"
+              style={{ color: active ? '#7c5ce7' : '#9ca3af' }}>
+              {/* Icon wrapper */}
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-150 ${
+                active ? '' : 'group-hover:bg-gray-100'
+              }`}
+                style={{ background: active ? '#f4f0fe' : undefined }}>
+                <svg width="20" height="20" viewBox="0 0 24 24"
+                  fill={active ? '#7c5ce7' : 'none'}
+                  stroke={active ? '#7c5ce7' : '#9ca3af'} strokeWidth={active ? 1.8 : 1.5}
+                  strokeLinecap="round" strokeLinejoin="round">
+                  <path d={item.icon} />
+                </svg>
+              </div>
+              {/* Label */}
+              <span className="text-[11px] font-medium leading-tight">{item.label}</span>
             </a>
           );
         })}
       </nav>
 
-      {/* Version */}
-      <div className="px-4 py-4" style={{ textAlign: collapsed ? 'center' : 'left' }}>
-        <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.15)' }}>v0.2</span>
-      </div>
+      {/* Footer version */}
+      <span className="text-[10px] mt-auto" style={{ color: '#d1d5db' }}>v0.2</span>
     </aside>
   );
 }

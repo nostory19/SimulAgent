@@ -2,8 +2,6 @@
 
 /** 显示设置面板：字体大小、透明度。主题：白色卡片 + 草绿滑块。 */
 interface SettingsPanelProps {
-  displayMode: 'bilingual' | 'chinese_only';
-  onDisplayModeChange: (mode: 'bilingual' | 'chinese_only') => void;
   fontSize: number;
   onFontSizeChange: (size: number) => void;
   opacity: number;

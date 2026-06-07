@@ -42,7 +42,7 @@ export default function PopupPage() {
 
   return (
     <div className="h-screen w-screen overflow-hidden select-none"
-      style={{ background: 'linear-gradient(180deg, rgba(8,8,10,0.78) 0%, rgba(16,16,18,0.72) 100%)' }}>
+      style={{ background: 'linear-gradient(180deg, rgba(245,245,248,0.95) 0%, rgba(235,236,240,0.92) 100%)' }}>
       <div ref={scrollRef} className="h-full w-full overflow-y-auto px-5 py-4 space-y-3.5"
         style={{ fontSize: `${fontSize}px`, scrollBehavior: 'smooth' }}>
         {/* 已确认的多行字幕——可滚动回看 */}
@@ -51,12 +51,12 @@ export default function PopupPage() {
             <div key={line.id} className="transition-all duration-500"
               style={{ opacity: 1 }}>
               {displayMode === 'bilingual' && line.source && (
-                <p className="leading-snug" style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.8em' }}>
+                <p className="leading-snug" style={{ color: 'rgba(0,0,0,0.35)', fontSize: '0.8em' }}>
                   {line.source}
                 </p>
               )}
               <p className={`leading-snug font-medium ${line.is_revised ? 'animate-fade-in' : ''}`}
-                style={{ color: line.is_revised ? '#e8bcc4' : '#f0d78c' }}>
+                style={{ color: line.is_revised ? '#c17d8b' : '#1a1a1a' }}>
                 {line.translation}
               </p>
             </div>
@@ -71,15 +71,15 @@ export default function PopupPage() {
         })() && (
           <div>
             {displayMode === 'bilingual' && partialSource && (
-              <p className="leading-snug" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.8em' }}>
+              <p className="leading-snug" style={{ color: 'rgba(0,0,0,0.3)', fontSize: '0.8em' }}>
                 {partialSource}
               </p>
             )}
-            <p className="leading-snug font-medium" style={{ color: partialTranslation ? '#f0d78c' : 'rgba(255,255,255,0.08)' }}>
+            <p className="leading-snug font-medium" style={{ color: partialTranslation ? '#1a1a1a' : 'rgba(0,0,0,0.08)' }}>
               {partialTranslation || '...'}
               {!partialTranslation && (
                 <span className="inline-block w-1 h-[1em] align-middle ml-0.5 rounded-sm animate-pulse"
-                  style={{ background: 'rgba(240,215,140,0.3)' }} />
+                  style={{ background: 'rgba(124,92,231,0.3)' }} />
               )}
             </p>
           </div>
@@ -88,7 +88,7 @@ export default function PopupPage() {
         {lines.length === 0 && !partialSource && !partialTranslation && (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs tracking-widest opacity-20 font-medium"
-              style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>STANDBY</p>
+              style={{ color: '#9ca3af', fontFamily: 'var(--font-mono)' }}>STANDBY</p>
           </div>
         )}
       </div>

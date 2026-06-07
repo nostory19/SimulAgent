@@ -75,13 +75,13 @@ function FlagIcon({ code }: { code: string }) {
 }
 
 const LANG: Record<string, { label: string; native: string }> = {
-  en: { label: 'English', native: 'English' },
+  en: { label: '英语', native: 'English' },
   zh: { label: '简体中文', native: '中文（简体）' },
-  ja: { label: '日本語', native: '日本語' },
-  ko: { label: '한국어', native: '한국어' },
-  fr: { label: 'Français', native: 'Français' },
-  de: { label: 'Deutsch', native: 'Deutsch' },
-  es: { label: 'Español', native: 'Español' },
+  ja: { label: '日语', native: '日本語' },
+  ko: { label: '韩语', native: '한국어' },
+  fr: { label: '法语', native: 'Français' },
+  de: { label: '德语', native: 'Deutsch' },
+  es: { label: '西班牙语', native: 'Español' },
 };
 
 interface LangSelectProps {

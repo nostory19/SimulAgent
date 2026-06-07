@@ -114,7 +114,7 @@ export type ServerMessage =
 
 /** 客户端 → 服务端消息联合类型 */
 export type ClientMessage =
-  | { type: "start_session"; config: { source_language: string; target_language: string; display_mode: string; title?: string; audio_source?: string; device_index?: number; glossary_terms?: Record<string, string> } }
+  | { type: "start_session"; config: { source_language: string; target_language: string; display_mode: string; title?: string; audio_source?: string; device_index?: number; glossary_terms?: Record<string, string>; token?: string } }
   | { type: "stop_session" }
   | { type: "pause_session" }
   | { type: "resume_session" }

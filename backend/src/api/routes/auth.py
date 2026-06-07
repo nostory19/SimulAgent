@@ -1,13 +1,23 @@
 """用户认证 API——注册/登录/登出。"""
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from ...models.database import get_db
 from ...models.user import User
+from ...models.session import CaptureSession
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+
+async def _get_usage(db: AsyncSession, user_id: str) -> int:
+    """查询用户已使用的翻译时长（秒）。"""
+    result = await db.execute(
+        select(func.coalesce(func.sum(CaptureSession.duration_seconds), 0))
+        .where(CaptureSession.user_id == user_id, CaptureSession.status == "completed")
+    )
+    return result.scalar() or 0
 
 
 class RegisterRequest(BaseModel):
@@ -26,6 +36,8 @@ class AuthResponse(BaseModel):
     username: str
     email: str
     token: str
+    usage_seconds: int = 0
+    quota_seconds: int = 3600
 
 
 @router.post("/register")
@@ -48,6 +60,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return AuthResponse(
         user_id=user.id, username=user.username,
         email=user.email, token=user.token,
+        usage_seconds=0, quota_seconds=user.quota_seconds,
     )
 
 
@@ -64,9 +77,12 @@ async def login(req: LoginRequest, db: AsyncSession = Depends(get_db)):
     user.token = User.generate_token()
     await db.commit()
 
+    usage_seconds = await _get_usage(db, user.id)
+
     return AuthResponse(
         user_id=user.id, username=user.username,
         email=user.email, token=user.token,
+        usage_seconds=usage_seconds, quota_seconds=user.quota_seconds,
     )
 
 
@@ -89,7 +105,10 @@ async def me(
     if not user:
         raise HTTPException(status_code=401, detail="未登录")
 
+    usage_seconds = await _get_usage(db, user.id)
+
     return AuthResponse(
         user_id=user.id, username=user.username,
         email=user.email, token=user.token,
+        usage_seconds=usage_seconds, quota_seconds=user.quota_seconds,
     )

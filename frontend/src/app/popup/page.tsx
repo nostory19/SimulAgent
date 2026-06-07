@@ -42,16 +42,14 @@ export default function PopupPage() {
 
   return (
     <div className="h-screen w-screen overflow-hidden select-none"
-      style={{ background: 'rgba(18,18,20,0.88)' }}>
-      <div ref={scrollRef} className="h-full w-full overflow-y-auto px-4 py-3 space-y-2"
+      style={{ background: 'linear-gradient(180deg, rgba(8,8,10,0.78) 0%, rgba(16,16,18,0.72) 100%)' }}>
+      <div ref={scrollRef} className="h-full w-full overflow-y-auto px-5 py-4 space-y-3.5"
         style={{ fontSize: `${fontSize}px`, scrollBehavior: 'smooth' }}>
         {/* 已确认的多行字幕——可滚动回看 */}
         {lines.map((line, i) => {
-          const isLatest = i === lines.length - 1;
-          const stale = isLatest && partialSource && line.source && !partialSource.includes(line.source);
           return (
             <div key={line.id} className="transition-all duration-500"
-              style={{ opacity: stale ? 0.35 : 1 }}>
+              style={{ opacity: 1 }}>
               {displayMode === 'bilingual' && line.source && (
                 <p className="leading-snug" style={{ color: 'rgba(255,255,255,0.38)', fontSize: '0.8em' }}>
                   {line.source}
@@ -65,8 +63,12 @@ export default function PopupPage() {
           );
         })}
 
-        {/* 流式实时预览 */}
-        {(partialSource || partialTranslation) && (
+        {/* 流式实时预览——跳过与最后确认行重复的内容 */}
+        {(() => {
+          const last = lines[lines.length - 1];
+          const dup = last && partialSource === last.source && partialTranslation === last.translation;
+          return (partialSource || partialTranslation) && !dup;
+        })() && (
           <div>
             {displayMode === 'bilingual' && partialSource && (
               <p className="leading-snug" style={{ color: 'rgba(255,255,255,0.35)', fontSize: '0.8em' }}>

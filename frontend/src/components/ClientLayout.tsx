@@ -17,8 +17,8 @@ function UserMenu() {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 w-48 bg-white rounded-2xl shadow-lg border border-gray-100 z-20 py-1 overflow-hidden"
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed right-6 top-12 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 py-1 overflow-hidden"
             style={{ animation: 'cardIn 0.15s ease-out' }}>
             {/* User info */}
             <div className="px-4 py-3 border-b border-gray-50">
@@ -61,8 +61,14 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       {/* Main area */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Top navbar */}
-        <header className="h-14 flex items-center justify-end px-6 border-b border-gray-100 shrink-0"
+        <header className="h-14 flex items-center justify-between px-6 border-b border-gray-100 shrink-0 relative z-30"
           style={{ background: 'rgba(250, 252, 253, 0.85)', backdropFilter: 'blur(8px)' }}>
+          {/* 左侧：当前区域指示 */}
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>中文（简体）</span>
+          </div>
+          {/* 右侧：用户菜单 */}
           <UserMenu />
         </header>
 

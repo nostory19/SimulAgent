@@ -1,22 +1,17 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ServerMessage, AudioDevice } from '../types';
+import type { ServerMessage } from '../types';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { SubtitleWindow, type SubtitleItem } from './SubtitleWindow';
 import { LangSelect } from './LangSelect';
 
-interface DeviceGroup {
-  label: string;
-  devices: AudioDevice[];
-}
+interface AudioDevice { name: string; index: number; max_input_channels: number; host_api?: string; }
+interface DeviceGroup { label: string; devices: AudioDevice[]; }
 
 export function TranslatePage() {
   const bcRef = useRef<BroadcastChannel | null>(null);
-  useEffect(() => {
-    bcRef.current = new BroadcastChannel('simulagent_subtitles');
-    return () => bcRef.current?.close();
-  }, []);
+  useEffect(() => { bcRef.current = new BroadcastChannel('simulagent_subtitles'); return () => bcRef.current?.close(); }, []);
 
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
@@ -24,239 +19,239 @@ export function TranslatePage() {
   const [deviceGroups, setDeviceGroups] = useState<DeviceGroup[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<number>(-1);
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
-
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.75);
   const [asrText, setAsrText] = useState('');
   const [partialTranslation, setPartialTranslation] = useState('');
   const [subtitles, setSubtitles] = useState<SubtitleItem[]>([]);
+  const [fullTranscript, setFullTranscript] = useState('');  // 全量累积译文
+  const [showTranscript, setShowTranscript] = useState(false);
   const [latency, setLatency] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case 'connected': break;
-      case 'session_started':
-        setSessionActive(true); setSubtitles([]); setAsrText(''); setPartialTranslation('');
-        break;
+      case 'session_started': setSessionActive(true); setSubtitles([]); setAsrText(''); setPartialTranslation(''); break;
       case 'asr_partial':
+        // 新句子开始：英文不包含上句 → 清空旧翻译避免残留
+        if (msg.text && asrText && !msg.text.includes(asrText.trim())) {
+          setPartialTranslation('');
+        }
         setAsrText(msg.text);
         break;
-      case 'translation_token':
-        setPartialTranslation((prev) => prev + msg.token);
-        break;
+      case 'translation_token': setPartialTranslation(prev => prev + msg.token); break;
       case 'translation_complete':
         setPartialTranslation('');
-        setSubtitles((prev) => [...prev.slice(-49), {
-          id: msg.segment_id, sequence_number: prev.length + 1,
-          source_text: asrText || '', translated_text: msg.translation,
-          is_revised: false, timestamp_ms: Date.now(),
-        }]);
+        setSubtitles(prev => [...prev.slice(-49), { id: msg.segment_id, sequence_number: prev.length + 1, source_text: asrText || '', translated_text: msg.translation, is_revised: false, timestamp_ms: Date.now() }]);
         break;
       case 'subtitle_entry': {
         const newSource = (msg.entry as any).segment_source || msg.entry.source_text || '';
-        setSubtitles((prev) => {
+        // 记录全量累积译文
+        if ((msg.entry as any).translated_text) setFullTranscript((msg.entry as any).translated_text);
+        setSubtitles(prev => {
           const last = prev[prev.length - 1];
           if (last && newSource && newSource.includes(last.source_text)) {
-            return [...prev.slice(0, -1), {
-              id: msg.entry.id, sequence_number: prev.length,
-              source_text: newSource,
-              translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
-              is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now(),
-            }];
+            return [...prev.slice(0, -1), { id: msg.entry.id, sequence_number: prev.length, source_text: newSource, translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '', is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now() }];
           }
-          return [...prev.slice(-9), {
-            id: msg.entry.id, sequence_number: prev.length + 1,
-            source_text: newSource,
-            translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '',
-            is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now(),
-          }];
+          return [...prev.slice(-9), { id: msg.entry.id, sequence_number: prev.length + 1, source_text: newSource, translated_text: (msg.entry as any).segment_translation || msg.entry.translated_text || '', is_revised: msg.entry.is_revised || false, timestamp_ms: Date.now() }];
         });
         break;
       }
-      case 'revision':
-        setSubtitles((prev) => prev.map((s) =>
-          s.id === msg.entry_id ? { ...s, translated_text: msg.new_translation, is_revised: true } : s));
-        break;
+      case 'revision': setSubtitles(prev => prev.map(s => s.id === msg.entry_id ? { ...s, translated_text: msg.new_translation, is_revised: true } : s)); break;
       case 'session_ended': setSessionActive(false); break;
       case 'error': console.error('WS error:', msg.message); break;
     }
   }, [asrText]);
 
-  const { connected, connect, send } = useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8766/ws',
-    onMessage: handleMessage,
-  });
+  const { connected, connect, send } = useWebSocket({ url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8766/ws', onMessage: handleMessage });
 
-  // 获取音频设备列表
   useEffect(() => {
-    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766';
-    fetch(`${API}/api/v1/system/audio-devices`)
-      .then(r => r.json())
-      .then(data => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8766'}/api/v1/system/audio-devices`)
+      .then(r => r.json()).then(data => {
         const groups: DeviceGroup[] = [];
-        // 扬声器（loopback设备）
         const loopbacks = (data.loopback_devices || []) as AudioDevice[];
-        if (loopbacks.length > 0) {
-          groups.push({ label: '扬声器（系统音频）', devices: loopbacks });
-        }
-        // 麦克风（非loopback输入设备）
-        const mics = (data.all_devices || []).filter((d: AudioDevice) => {
-          const name = d.name.toLowerCase();
-          return !name.includes('loopback') && d.max_input_channels > 0;
-        });
-        if (mics.length > 0) {
-          groups.push({ label: '麦克风', devices: mics });
-        }
+        if (loopbacks.length > 0) groups.push({ label: '扬声器', devices: loopbacks });
+        const mics = (data.all_devices || []).filter((d: AudioDevice) => !d.name.toLowerCase().includes('loopback') && d.max_input_channels > 0);
+        if (mics.length > 0) groups.push({ label: '麦克风', devices: mics });
         setDeviceGroups(groups);
-        // 默认选中第一个loopback设备
-        if (loopbacks.length > 0 && selectedDevice < 0) {
-          setSelectedDevice(loopbacks[0].index);
-        }
-      })
-      .catch(() => {});
+        if (loopbacks.length > 0 && selectedDevice < 0) setSelectedDevice(loopbacks[0].index);
+      }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (sessionActive) {
-      const interval = setInterval(() => setLatency((prev) => prev + 0.1), 100);
-      return () => clearInterval(interval);
-    } else {
-      setLatency(0);
-    }
-  }, [sessionActive]);
+  useEffect(() => { if (!sessionActive) { setLatency(0); return; } const iv = setInterval(() => setLatency(prev => +(prev + 0.1).toFixed(1)), 100); return () => clearInterval(iv); }, [sessionActive]);
 
   const handleStart = useCallback(() => {
-    setSubtitles([]); setAsrText(''); setPartialTranslation('');
-    if (!connected) connect();
+    setSubtitles([]); setAsrText(''); setPartialTranslation(''); if (!connected) connect();
     send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice } });
   }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice]);
 
-  const handleStop = useCallback(() => {
-    send({ type: 'stop_session' }); setSessionActive(false);
-  }, [send]);
-
+  const handleStop = useCallback(() => { send({ type: 'stop_session' }); setSessionActive(false); }, [send]);
   const openPopup = () => {
-    const w = screen.width;
-    window.open('/popup', 'simulagent-popup', `width=${w},height=160,top=${screen.height - 200},left=0,resizable=yes`);
+    const w = 400, h = 280;
+    window.open('/popup', 'simulagent-pip',
+      `width=${w},height=${h},top=${screen.height - h - 80},left=${screen.width - w - 40},resizable=yes,alwaysOnTop=yes,toolbar=no,menubar=no,location=no,status=no,scrollbars=no`);
   };
 
-  // BroadcastChannel sync
   useEffect(() => { bcRef.current?.postMessage({ type: 'subtitles', subtitles }); }, [subtitles]);
   useEffect(() => { bcRef.current?.postMessage({ type: 'partial', source: asrText, translation: partialTranslation }); }, [asrText, partialTranslation]);
   useEffect(() => { bcRef.current?.postMessage({ type: 'settings', displayMode, fontSize, opacity }); }, [displayMode, fontSize, opacity]);
 
-  const selectClass = "bg-white border-2 border-gray-200 rounded-xl px-3 py-2 text-gray-700 text-sm font-medium focus:border-green-400 focus:outline-none transition-colors";
-  const btnClass = "flex-1 text-white py-2.5 px-4 rounded-xl text-sm font-semibold shadow-sm transition-all";
-
+  // === RENDER ===
   return (
-    <div className="space-y-4">
-      {/* 状态栏 */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-gray-800">实时翻译</h2>
-          <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3 py-1">
-            <span className={`h-2.5 w-2.5 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`} />
-            <span className="text-xs text-gray-500">{connected ? '已连接' : '未连接'}</span>
-            {sessionActive && <span className="text-xs text-gray-400">· 延迟 {latency.toFixed(1)}s</span>}
-          </div>
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 80px)' }}>
+      {/* === Top: Compact toolbar === */}
+      <div className="flex items-center gap-3 pb-4">
+        <div className="flex items-center gap-2 flex-1 flex-wrap">
+          <LangSelect value={sourceLanguage} onChange={setSourceLanguage} />
+          <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>→</span>
+          <LangSelect value={targetLanguage} onChange={setTargetLanguage} />
+          {!sessionActive && deviceGroups.length > 0 && (
+            <select className="rounded-md px-2.5 py-2 text-xs font-medium focus:outline-none"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: 'none', maxWidth: 180 }}
+              value={selectedDevice} onChange={e => setSelectedDevice(Number(e.target.value))}>
+              {deviceGroups.map(g => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.devices.map(d => <option key={d.index} value={d.index}>{d.name}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          )}
+          {!sessionActive && (
+            <select className="rounded-md px-2.5 py-2 text-xs font-medium focus:outline-none"
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: 'none' }}
+              value={displayMode} onChange={e => setDisplayMode(e.target.value as any)}>
+              <option value="bilingual">双语</option>
+              <option value="chinese_only">仅译文</option>
+            </select>
+          )}
         </div>
+        <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+          {sessionActive && <span style={{ color: 'var(--accent-text)' }}>{latency}s</span>}
+          <span className="w-2 h-2 rounded-full" style={{ background: connected ? 'var(--accent)' : 'var(--danger)' }} />
+          {connected ? '已连接' : '离线'}
+        </div>
+      </div>
 
-        {/* 设置行 */}
-        {!sessionActive && (
-          <div className="space-y-2 mb-3">
-            {/* 源语言→目标语言 */}
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <LangSelect label="源语言" value={sourceLanguage} onChange={setSourceLanguage} />
-              </div>
-              <div className="shrink-0 mt-4 w-8 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7cbd5b" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </div>
-              <div className="flex-1">
-                <LangSelect label="目标语言" value={targetLanguage} onChange={setTargetLanguage} />
-              </div>
+      {/* === Center: Subtitle display (takes all available space) === */}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {/* Live ASR feed — integrated above subtitles */}
+        {asrText && sessionActive && (
+          <div className="mb-3 animate-fade-in" style={{ padding: '8px 12px', borderRadius: 'var(--radius)', background: 'var(--accent-soft)' }}>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse-ring" style={{ background: 'var(--accent)' }} />
+              <span className="text-[10px] font-medium tracking-wide" style={{ color: 'var(--accent-text)' }}>聆听中</span>
             </div>
-            {/* 设备+模式 */}
-            <div className="flex gap-2">
-              <select className={selectClass + ' flex-1'} value={selectedDevice} onChange={(e) => setSelectedDevice(Number(e.target.value))}>
-                {deviceGroups.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.devices.map((d) => (<option key={d.index} value={d.index}>🎤 {d.name}</option>))}
-                  </optgroup>
-                ))}
-              </select>
-              <select className={selectClass} value={displayMode} onChange={(e) => setDisplayMode(e.target.value as any)}>
-                <option value="bilingual">双语显示</option>
-                <option value="chinese_only">仅译文</option>
-              </select>
-            </div>
+            <p className="text-[13px] leading-relaxed font-medium" style={{ color: 'var(--text)' }}>{asrText}</p>
+            {partialTranslation && <p className="text-[12px] leading-relaxed mt-1" style={{ color: 'var(--accent-text)' }}>{partialTranslation}</p>}
           </div>
         )}
 
-        {/* 控制按钮 */}
-        <div className="flex gap-3 mb-3">
+        {/* 全量译文切换 */}
+        {sessionActive && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowTranscript(!showTranscript)}
+              className="text-[11px] font-medium transition-colors duration-150"
+              style={{ color: showTranscript ? 'var(--accent-text)' : 'var(--text-tertiary)' }}>
+              {showTranscript ? '● 全量译文' : '○ 全量译文'}
+            </button>
+          </div>
+        )}
+
+        {/* 全量累积译文区域 */}
+        {showTranscript && fullTranscript && (
+          <div className="surface p-4 max-h-[200px] overflow-y-auto animate-fade-in" style={{ fontSize: '14px' }}>
+            <p className="leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text)' }}>{fullTranscript}</p>
+          </div>
+        )}
+
+        {/* Subtitle area */}
+        <div className="flex-1 min-h-0">
+          <SubtitleWindow subtitles={subtitles} displayMode={displayMode} fontSize={fontSize} opacity={opacity} />
+        </div>
+
+        {/* Empty state */}
+        {!sessionActive && subtitles.length === 0 && (
+          <div className="flex-1 flex items-center justify-center" style={{ color: 'var(--text-tertiary)' }}>
+            <div className="text-center">
+              <div className="text-4xl mb-4 opacity-30">🎙</div>
+              <p className="text-sm font-medium mb-1">准备好开始翻译</p>
+              <p className="text-xs">选择语言后点击下方开始按钮</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* === Bottom: Main control bar === */}
+      <div className="pt-4 flex items-center gap-3">
+        {/* Start / Pause+Resume+Stop */}
+        <div className="flex-1 flex items-center gap-2.5">
           {!sessionActive ? (
-            <button onClick={handleStart} className={`${btnClass} bg-green-500 hover:bg-green-600`}>开始采集</button>
+            <button onClick={handleStart}
+              className="flex items-center justify-center gap-2 px-8 py-3 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98]"
+              style={{ background: 'var(--accent)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-hover)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}>
+              <svg width="10" height="13" viewBox="0 0 10 13" fill="white"><path d="M0 0v13l10-6.5z"/></svg>
+              开始采集
+            </button>
           ) : (
             <>
-              <button onClick={() => send({ type: 'pause_session' })} className={`${btnClass} bg-yellow-400 hover:bg-yellow-500`}>暂停</button>
-              <button onClick={() => send({ type: 'resume_session' })} className={`${btnClass} bg-green-400 hover:bg-green-500`}>继续</button>
-              <button onClick={handleStop} className={`${btnClass} bg-pink-400 hover:bg-pink-500`}>停止</button>
+              <button onClick={() => send({ type: 'pause_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-150 active:scale-[0.98] bg-yellow-500 hover:bg-yellow-600">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                暂停
+              </button>
+              <button onClick={() => send({ type: 'resume_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+                style={{ background: 'var(--accent)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}>
+                <svg width="10" height="13" viewBox="0 0 10 13" fill="white"><path d="M0 0v13l10-6.5z"/></svg>
+                继续
+              </button>
+              <button onClick={handleStop} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+                style={{ background: 'var(--danger)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'var(--danger-hover)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'var(--danger)')}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+                停止
+              </button>
             </>
           )}
         </div>
 
-        {!sessionActive && (
-          <button onClick={openPopup} className="w-full border-2 border-dashed border-pink-300 hover:border-pink-400 text-gray-600 py-2 rounded-xl text-sm font-medium transition-all">
-            启动悬浮字幕助手
+        {/* Settings + Popup */}
+        <div className="flex items-center gap-2">
+          <button onClick={openPopup} className="px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all duration-150 active:scale-[0.98]"
+            style={{ color: 'var(--accent-text)', background: 'var(--accent-soft)' }}>
+            ▣ 悬浮窗
           </button>
-        )}
-      </div>
-
-      {/* 实时英文原文流 */}
-      {asrText && sessionActive && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-green-200">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-xs text-green-600 font-medium">实时聆听中</span>
-          </div>
-          <p className="text-gray-800 text-base leading-relaxed font-medium">{asrText}</p>
-          {partialTranslation && (
-            <div className="mt-2 pt-2 border-t border-gray-100">
-              <p className="text-green-600 text-sm animate-pulse">{partialTranslation}</p>
-            </div>
+          {!sessionActive && (
+            <button onClick={() => setShowSettings(!showSettings)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors duration-150"
+              style={{ color: 'var(--text-tertiary)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-elevated)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.33-.02-.64-.06-.94l2.02-1.58c.18-.14.23-.38.12-.56l-1.89-3.28c-.12-.19-.36-.26-.56-.18l-2.38.96c-.5-.38-1.06-.68-1.66-.88L14.45 3.5c-.04-.2-.2-.34-.4-.34h-3.78c-.2 0-.36.14-.4.34l-.3 2.52c-.6.2-1.16.5-1.66.88l-2.38-.96c-.2-.08-.44-.01-.56.18l-1.89 3.28c-.12.19-.07.42.12.56l2.02 1.58c-.04.3-.06.61-.06.94 0 .33.02.64.06.94l-2.02 1.58c-.18.14-.23.38-.12.56l1.89 3.28c.12.19.36.26.56.18l2.38-.96c.5.38 1.06.68 1.66.88l.3 2.52c.04.2.2.34.4.34h3.78c.2 0 .36-.14.4-.34l.3-2.52c.6-.2 1.16-.5 1.66-.88l2.38.96c.2.08.44.01.56-.18l1.89-3.28c.12-.19.07-.42-.12-.56l-2.02-1.58zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+            </button>
           )}
         </div>
-      )}
-
-      {/* 实时波形示意 */}
-      {sessionActive && (
-        <div className="flex items-center justify-center gap-0.5 h-10">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div key={i} className="w-1 bg-green-400 rounded-full animate-pulse"
-              style={{ height: `${20 + Math.random() * 30}px`, animationDelay: `${i * 0.05}s` }} />
-          ))}
-        </div>
-      )}
-
-      {/* 字幕窗口 */}
-      <SubtitleWindow subtitles={subtitles} displayMode={displayMode} fontSize={fontSize} opacity={opacity} />
-
-      {/* 字幕设置 */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <p className="text-xs text-gray-500 font-medium mb-1">字体大小</p>
-            <input type="range" min={12} max={32} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="w-full accent-green-500" />
-            <p className="text-xs text-gray-400 text-right">{fontSize}px</p>
-          </div>
-          <div className="flex-1">
-            <p className="text-xs text-gray-500 font-medium mb-1">透明度</p>
-            <input type="range" min={30} max={100} value={Math.round(opacity * 100)} onChange={(e) => setOpacity(Number(e.target.value) / 100)} className="w-full accent-pink-400" />
-            <p className="text-xs text-gray-400 text-right">{Math.round(opacity * 100)}%</p>
-          </div>
-        </div>
       </div>
+
+      {/* Settings panel (collapsible) */}
+      {showSettings && !sessionActive && (
+        <div className="mt-3 animate-enter" style={{ padding: '12px 0', borderTop: '1px solid var(--border-light)' }}>
+          <div className="flex gap-6">
+            <div className="flex-1">
+              <p className="text-[11px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>字幕字体 {fontSize}px</p>
+              <input type="range" min={12} max={32} value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-full" style={{ accentColor: 'var(--accent)' }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[11px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>背景不透明度 {Math.round(opacity * 100)}%</p>
+              <input type="range" min={30} max={100} value={Math.round(opacity * 100)} onChange={e => setOpacity(Number(e.target.value) / 100)} className="w-full" style={{ accentColor: 'var(--accent)' }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

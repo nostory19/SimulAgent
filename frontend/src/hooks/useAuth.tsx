@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
-interface User { user_id: string; username: string; email: string; token: string; }
+interface User { user_id: string; username: string; email: string; token: string; usage_seconds: number; quota_seconds: number; }
 
 interface AuthContextType {
   user: User | null;
@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fetch(`${API}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${u.token}` } })
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data) setUser(data); else localStorage.removeItem('simulagent_user'); })
+        .catch(() => localStorage.removeItem('simulagent_user'))
         .finally(() => setLoading(false));
     } else {
       setLoading(false);

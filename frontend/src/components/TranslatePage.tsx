@@ -96,7 +96,10 @@ export function TranslatePage() {
         if (res.ok) glossaryTerms = await res.json();
       }
     } catch {}
-    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice, glossary_terms: glossaryTerms } });
+    // 获取 auth token 用于关联用户
+    let authToken = '';
+    try { const saved = localStorage.getItem('simulagent_user'); if (saved) authToken = JSON.parse(saved).token || ''; } catch {}
+    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice, glossary_terms: glossaryTerms, token: authToken } });
   }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice, setAsrTextSync]);
 
   const handleStop = useCallback(() => { send({ type: 'stop_session' }); setSessionActive(false); }, [send]);

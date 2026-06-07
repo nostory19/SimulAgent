@@ -27,6 +27,12 @@ function UserMenu() {
     setOpen(!open);
   };
 
+  // 计算使用额度
+  const usagePercent = user ? Math.min(100, Math.round((user.usage_seconds / user.quota_seconds) * 100)) : 0;
+  const usageMinutes = user ? Math.round(user.usage_seconds / 60) : 0;
+  const quotaMinutes = user ? Math.round(user.quota_seconds / 60) : 0;
+  const progressColor = usagePercent < 50 ? '#16a34a' : usagePercent < 80 ? '#d4a853' : '#dc4a4a';
+
   return (
     <div className="relative">
       <button onClick={handleClick}
@@ -38,24 +44,46 @@ function UserMenu() {
       {user && open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="animate-enter absolute right-0 top-10 w-44 rounded-lg shadow-md z-50 overflow-hidden"
+          <div className="animate-enter absolute right-0 top-10 w-64 rounded-xl shadow-lg z-50 overflow-hidden"
             style={{ background: '#fff', border: '1px solid #e8e6e2' }}>
-            <div className="px-3.5 py-3" style={{ borderBottom: '1px solid #f0eeea' }}>
+            {/* 用户信息 */}
+            <div className="px-4 pt-4 pb-3 text-center" style={{ background: 'linear-gradient(180deg, #f8f7f5 0%, #fff 100%)' }}>
+              <div className="w-10 h-10 mx-auto rounded-full flex items-center justify-center text-sm font-bold text-white mb-2"
+                style={{ background: 'linear-gradient(135deg, #7c5ce7, #5b3fb8)' }}>
+                {user.username.charAt(0).toUpperCase()}
+              </div>
               <p className="text-[13px] font-semibold" style={{ color: '#1a1a1a' }}>{user.username}</p>
               <p className="text-[11px] mt-0.5" style={{ color: '#a0a09e' }}>{user.email}</p>
             </div>
-            <a href="/settings" onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] transition-colors duration-100"
-              style={{ color: '#696967' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#fafaf8')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.33-.02-.64-.06-.94l2.02-1.58c.18-.14.23-.38.12-.56l-1.89-3.28c-.12-.19-.36-.26-.56-.18l-2.38.96c-.5-.38-1.06-.68-1.66-.88L14.45 3.5c-.04-.2-.2-.34-.4-.34h-3.78c-.2 0-.36.14-.4.34l-.3 2.52c-.6.2-1.16.5-1.66.88l-2.38-.96c-.2-.08-.44-.01-.56.18l-1.89 3.28c-.12.19-.07.42.12.56l2.02 1.58c-.04.3-.06.61-.06.94 0 .33.02.64.06.94l-2.02 1.58c-.18.14-.23.38-.12.56l1.89 3.28c.12.19.36.26.56.18l2.38-.96c.5.38 1.06.68 1.66.88l.3 2.52c.04.2.2.34.4.34h3.78c.2 0 .36-.14.4-.34l.3-2.52c.6-.2 1.16-.5 1.66-.88l2.38.96c.2.08.44.01.56-.18l1.89-3.28c.12-.19.07-.42-.12-.56l-2.02-1.58zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
-              设置
-            </a>
-            <div style={{ borderTop: '1px solid #f0eeea' }} className="mt-0.5 pt-0.5">
+
+            {/* 使用额度 */}
+            <div className="px-4 py-3" style={{ borderTop: '1px solid #f0eeea' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-medium" style={{ color: '#696967' }}>翻译时长</span>
+                <span className="text-[11px] font-mono" style={{ color: '#a0a09e' }}>{usageMinutes}/{quotaMinutes}分钟</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#f0eeea' }}>
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.max(2, usagePercent)}%`, background: progressColor }} />
+              </div>
+              <p className="text-[10px] mt-1 text-right" style={{ color: usagePercent >= 80 ? progressColor : '#a0a09e' }}>
+                {usagePercent >= 100 ? '额度已用完' : `剩余 ${quotaMinutes - usageMinutes} 分钟`}
+              </p>
+            </div>
+
+            {/* 操作 */}
+            <div style={{ borderTop: '1px solid #f0eeea' }}>
+              <a href="/settings" onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] transition-colors duration-100"
+                style={{ color: '#696967' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#fafaf8')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.33-.02-.64-.06-.94l2.02-1.58c.18-.14.23-.38.12-.56l-1.89-3.28c-.12-.19-.36-.26-.56-.18l-2.38.96c-.5-.38-1.06-.68-1.66-.88L14.45 3.5c-.04-.2-.2-.34-.4-.34h-3.78c-.2 0-.36.14-.4.34l-.3 2.52c-.6.2-1.16.5-1.66.88l-2.38-.96c-.2-.08-.44-.01-.56.18l-1.89 3.28c-.12.19-.07.42.12.56l2.02 1.58c-.04.3-.06.61-.06.94 0 .33.02.64.06.94l-2.02 1.58c-.18.14-.23.38-.12.56l1.89 3.28c.12.19.36.26.56.18l2.38-.96c.5.38 1.06.68 1.66.88l.3 2.52c.04.2.2.34.4.34h3.78c.2 0 .36-.14.4-.34l.3-2.52c.6-.2 1.16-.5 1.66-.88l2.38.96c.2.08.44.01.56-.18l1.89-3.28c.12-.19.07-.42-.12-.56l-2.02-1.58zM12 15c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+                设置
+              </a>
               <button onClick={() => { logout(); setOpen(false); }}
-                className="flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] w-full text-left transition-colors duration-100"
-                style={{ color: '#c17d8b' }}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] w-full text-left transition-colors duration-100"
+                style={{ color: '#c17d8b', borderTop: '1px solid #f0eeea' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#faf0f2')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
@@ -65,6 +93,7 @@ function UserMenu() {
           </div>
         </>
       )}
+
       {showAuth && <AuthModal open={showAuth} onClose={() => setShowAuth(false)} />}
     </div>
   );

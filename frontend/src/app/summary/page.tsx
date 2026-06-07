@@ -81,7 +81,7 @@ export default function SummaryPage() {
                   {s.total_segments}段 · {s.duration_seconds ? `${Math.floor(s.duration_seconds / 60)}分钟` : '未知时长'}
                 </p>
               </div>
-              {s.has_summary && (
+              {(s as any).has_summary && (
                 <span className="shrink-0 text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-600">
                   已有总结
                 </span>

@@ -34,7 +34,7 @@ export function TranslatePage() {
   const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case 'connected': break;
-      case 'session_started': setSessionActive(true); setSubtitles([]); setAsrTextSync(''); setPartialTranslation(''); break;
+      case 'session_started': setSessionActive(true); setSubtitles([]); setAsrTextSync(''); setPartialTranslation(''); setFullTranscript(''); break;
       case 'asr_partial':
         // 新句子开始：英文不包含上句 → 清空旧翻译避免残留
         if (msg.text && asrTextRef.current && !msg.text.includes(asrTextRef.current.trim())) {
@@ -46,6 +46,7 @@ export function TranslatePage() {
       case 'translation_complete':
         setPartialTranslation('');
         setSubtitles(prev => [...prev.slice(-49), { id: msg.segment_id, sequence_number: prev.length + 1, source_text: asrTextRef.current || '', translated_text: msg.translation, is_revised: false, timestamp_ms: Date.now() }]);
+        setFullTranscript(prev => prev ? `${prev} ${msg.translation}` : msg.translation);
         break;
       case 'subtitle_entry': {
         const newSource = (msg.entry as any).segment_source || msg.entry.source_text || '';
@@ -85,6 +86,7 @@ export function TranslatePage() {
 
   const handleStart = useCallback(async () => {
     setSubtitles([]); setAsrTextSync(''); setPartialTranslation(''); if (!connected) connect();
+    // 获取用户术语库（如果启用）
     let glossaryTerms: Record<string, string> = {};
     try {
       const glossaryEnabled = localStorage.getItem('glossary_enabled') !== 'false';

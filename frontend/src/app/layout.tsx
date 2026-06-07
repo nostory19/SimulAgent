@@ -1,5 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
+import { Sidebar } from '@/components/Sidebar';
 
 export const metadata: Metadata = {
   title: 'SimulAgent',
@@ -9,7 +10,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh">
-      <body className="min-h-screen" style={{ background: 'var(--bg)' }}>{children}</body>
+      <body className="flex" style={{ background: '#fafbfc' }}>
+        <Sidebar />
+        <main className="flex-1 min-h-screen p-6 max-w-[960px]">
+          {children}
+        </main>
+      </body>
     </html>
   );
 }

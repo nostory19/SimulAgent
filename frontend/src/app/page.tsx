@@ -1,11 +1,5 @@
-'use client';
-
-import { ControlPanel } from '@/components/ControlPanel';
+import { TranslatePage } from '@/components/TranslatePage';
 
 export default function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <ControlPanel />
-    </main>
-  );
+  return <TranslatePage />;
 }

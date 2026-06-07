@@ -98,24 +98,35 @@ export function TranslatePage() {
         });
         pipWindowRef.current = pipWin;
 
-        // 注入样式 + HTML
+        // 注入样式 + HTML——影院级字幕排版
         const style = pipWin.document.createElement('style');
         style.textContent = `
           *{margin:0;padding:0;box-sizing:border-box}
-          body{background:rgba(18,18,20,0.92);color:#f0d78c;font-family:Inter,system-ui,sans-serif;
-               overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased}
-          #container{height:100vh;overflow-y:auto;padding:16px;scroll-behavior:smooth}
-          .line{margin-bottom:12px;transition:opacity .5s}
-          .src{color:rgba(255,255,255,.38);font-size:.78em;line-height:1.4;margin-bottom:2px}
-          .tgt{font-size:16px;font-weight:500;line-height:1.5}
+          body{background:linear-gradient(180deg,rgba(8,8,10,.78) 0%,rgba(16,16,18,.72) 100%);
+               color:#e8d59c;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+               overflow:hidden;user-select:none;-webkit-font-smoothing:antialiased;
+               -moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+          #container{height:100vh;overflow-y:auto;padding:18px 20px;scroll-behavior:smooth}
+          .line{margin-bottom:14px;transition:opacity .4s ease;position:relative}
+          .line+.line{padding-top:12px;border-top:1px solid rgba(255,255,255,.04)}
+          .src{color:rgba(255,255,255,.32);font-size:13px;font-weight:400;line-height:1.55;
+               letter-spacing:.01em;margin-bottom:2px;font-style:italic}
+          .tgt{font-size:20px;font-weight:500;line-height:1.6;letter-spacing:.02em;
+               text-shadow:0 1px 2px rgba(0,0,0,.5)}
           .revised{color:#e8bcc4}
-          .partial-src{color:rgba(255,255,255,.35);font-size:.78em;line-height:1.4;margin-bottom:2px}
-          .partial-tgt{font-size:16px;font-weight:500;color:rgba(255,255,255,.08);line-height:1.5}
-          .partial-tgt.has{color:#f0d78c}
-          .cursor{display:inline-block;width:4px;height:1em;vertical-align:middle;margin-left:2px;
-                  background:rgba(240,215,140,.5);border-radius:1px;animation:blink .8s infinite}
-          @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-          @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+          .partial-src{color:rgba(255,255,255,.28);font-size:13px;line-height:1.55;
+                       letter-spacing:.01em;margin-bottom:2px;font-style:italic}
+          .partial-tgt{font-size:18px;font-weight:500;color:rgba(255,255,255,.06);line-height:1.6}
+          .partial-tgt.has{color:#e8d59c}
+          .cursor{display:inline-block;width:2px;height:1.1em;vertical-align:text-bottom;
+                  margin-left:3px;background:#e8d59c;border-radius:1px;
+                  animation:cursorBlink 1s steps(2) infinite}
+          .dot{display:inline-block;width:3px;height:3px;border-radius:50%;
+               background:rgba(255,255,255,.2);margin:0 2px;animation:dotBounce 1.4s infinite}
+          .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+          @keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
+          @keyframes dotBounce{0%,80%,100%{opacity:.2;transform:translateY(0)}40%{opacity:.6;transform:translateY(-3px)}}
+          @keyframes fadeIn{from{opacity:0;transform:translateY(2px)}to{opacity:1;transform:translateY(0)}}
         `;
         pipWin.document.head.appendChild(style);
 
@@ -131,17 +142,21 @@ export function TranslatePage() {
 
         const render = () => {
           const recent = lines.slice(-20);
+          const lastLine = recent[recent.length - 1];
+          // 流式预览如果与最后确认行完全相同则跳过（避免重复）
+          const partialDuplicate = lastLine && partialSrc === lastLine.source && partialTgt === lastLine.translation;
+          const showPartial = (partialSrc || partialTgt) && !partialDuplicate;
+
           container.innerHTML = recent.map((l: any, i: number) => {
-            const isLatest = i === recent.length - 1;
-            const stale = isLatest && partialSrc && l.source && !partialSrc.includes(l.source);
-            return `<div class="line" style="opacity:${stale ? 0.35 : 1}">
+            return `<div class="line" style="opacity:1">
               ${mode === 'bilingual' && l.source ? `<div class="src">${l.source}</div>` : ''}
               <div class="tgt${l.is_revised ? ' revised' : ''}">${l.translation}</div>
             </div>`;
-          }).join('') + (partialSrc || partialTgt ? `<div class="line">
+          }).join('') + (showPartial ? `<div class="line">
             ${mode === 'bilingual' && partialSrc ? `<div class="partial-src">${partialSrc}</div>` : ''}
             <div class="partial-tgt${partialTgt ? ' has' : ''}">
-              ${partialTgt || '...'}<span class="${partialTgt ? 'cursor' : ''}"></span>
+              ${partialTgt || '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'}
+              ${partialTgt ? '<span class="cursor"></span>' : ''}
             </div>
           </div>` : '');
 
@@ -228,10 +243,10 @@ export function TranslatePage() {
           <div className="mb-3 animate-fade-in" style={{ padding: '8px 12px', borderRadius: 'var(--radius)', background: 'var(--accent-soft)' }}>
             <div className="flex items-center gap-1.5 mb-1">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse-ring" style={{ background: 'var(--accent)' }} />
-              <span className="text-[10px] font-medium tracking-wide" style={{ color: 'var(--accent-text)' }}>聆听中</span>
+              <span className="text-[12px] font-medium tracking-wide" style={{ color: 'var(--accent-text)' }}>聆听中</span>
             </div>
-            <p className="text-[13px] leading-relaxed font-medium" style={{ color: 'var(--text)' }}>{asrText}</p>
-            {partialTranslation && <p className="text-[12px] leading-relaxed mt-1" style={{ color: 'var(--accent-text)' }}>{partialTranslation}</p>}
+            <p className="text-[14px] leading-relaxed font-medium" style={{ color: 'var(--text)' }}>{asrText}</p>
+            {partialTranslation && <p className="text-[13px] leading-relaxed mt-1" style={{ color: 'var(--accent-text)' }}>{partialTranslation}</p>}
           </div>
         )}
 
@@ -239,7 +254,7 @@ export function TranslatePage() {
         {sessionActive && (
           <div className="flex items-center gap-2">
             <button onClick={() => setShowTranscript(!showTranscript)}
-              className="text-[11px] font-medium transition-colors duration-150"
+              className="text-[12px] font-medium transition-colors duration-150"
               style={{ color: showTranscript ? 'var(--accent-text)' : 'var(--text-tertiary)' }}>
               {showTranscript ? '● 全量译文' : '○ 全量译文'}
             </button>
@@ -285,18 +300,18 @@ export function TranslatePage() {
             </button>
           ) : (
             <>
-              <button onClick={() => send({ type: 'pause_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-150 active:scale-[0.98] bg-yellow-500 hover:bg-yellow-600">
+              <button onClick={() => send({ type: 'pause_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98] bg-yellow-500 hover:bg-yellow-600">
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
                 暂停
               </button>
-              <button onClick={() => send({ type: 'resume_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+              <button onClick={() => send({ type: 'resume_session' })} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98]"
                 style={{ background: 'var(--accent)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-hover)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--accent)')}>
                 <svg width="10" height="13" viewBox="0 0 10 13" fill="white"><path d="M0 0v13l10-6.5z"/></svg>
                 继续
               </button>
-              <button onClick={handleStop} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[13px] font-semibold transition-all duration-150 active:scale-[0.98]"
+              <button onClick={handleStop} className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-white text-[14px] font-semibold transition-all duration-150 active:scale-[0.98]"
                 style={{ background: 'var(--danger)' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--danger-hover)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'var(--danger)')}>
@@ -309,7 +324,7 @@ export function TranslatePage() {
 
         {/* Settings + Popup */}
         <div className="flex items-center gap-2">
-          <button onClick={openPopup} className="px-3.5 py-2 rounded-lg text-[12px] font-medium transition-all duration-150 active:scale-[0.98]"
+          <button onClick={openPopup} className="px-3.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 active:scale-[0.98]"
             style={{ color: 'var(--accent-text)', background: 'var(--accent-soft)' }}>
             ▣ 悬浮窗
           </button>
@@ -330,11 +345,11 @@ export function TranslatePage() {
         <div className="mt-3 animate-enter" style={{ padding: '12px 0', borderTop: '1px solid var(--border-light)' }}>
           <div className="flex gap-6">
             <div className="flex-1">
-              <p className="text-[11px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>字幕字体 {fontSize}px</p>
+              <p className="text-[12px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>字幕字体 {fontSize}px</p>
               <input type="range" min={12} max={32} value={fontSize} onChange={e => setFontSize(Number(e.target.value))} className="w-full" style={{ accentColor: 'var(--accent)' }} />
             </div>
             <div className="flex-1">
-              <p className="text-[11px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>背景不透明度 {Math.round(opacity * 100)}%</p>
+              <p className="text-[12px] font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>背景不透明度 {Math.round(opacity * 100)}%</p>
               <input type="range" min={30} max={100} value={Math.round(opacity * 100)} onChange={e => setOpacity(Number(e.target.value) / 100)} className="w-full" style={{ accentColor: 'var(--accent)' }} />
             </div>
           </div>

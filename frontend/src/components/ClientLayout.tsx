@@ -36,7 +36,7 @@ function UserMenu() {
   return (
     <div className="relative">
       <button onClick={handleClick}
-        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold text-white transition-all duration-150 hover:ring-2 hover:ring-offset-1"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-semibold text-white transition-all duration-150 hover:ring-2 hover:ring-offset-1"
         style={{ background: user ? 'linear-gradient(135deg, #7c5ce7, #5b3fb8)' : '#c4c0b8' }}>
         {user ? user.username.charAt(0).toUpperCase() : '?'}
       </button>
@@ -53,20 +53,20 @@ function UserMenu() {
                 {user.username.charAt(0).toUpperCase()}
               </div>
               <p className="text-[13px] font-semibold" style={{ color: '#1a1a1a' }}>{user.username}</p>
-              <p className="text-[11px] mt-0.5" style={{ color: '#a0a09e' }}>{user.email}</p>
+              <p className="text-[12px] mt-0.5" style={{ color: '#a0a09e' }}>{user.email}</p>
             </div>
 
             {/* 使用额度 */}
             <div className="px-4 py-3" style={{ borderTop: '1px solid #f0eeea' }}>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-medium" style={{ color: '#696967' }}>翻译时长</span>
-                <span className="text-[11px] font-mono" style={{ color: '#a0a09e' }}>{usageMinutes}/{quotaMinutes}分钟</span>
+                <span className="text-[12px] font-medium" style={{ color: '#696967' }}>翻译时长</span>
+                <span className="text-[12px] font-mono" style={{ color: '#a0a09e' }}>{usageMinutes}/{quotaMinutes}分钟</span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#f0eeea' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{ width: `${Math.max(2, usagePercent)}%`, background: progressColor }} />
               </div>
-              <p className="text-[10px] mt-1 text-right" style={{ color: usagePercent >= 80 ? progressColor : '#a0a09e' }}>
+              <p className="text-[11px] mt-1 text-right" style={{ color: usagePercent >= 80 ? progressColor : '#a0a09e' }}>
                 {usagePercent >= 100 ? '额度已用完' : `剩余 ${quotaMinutes - usageMinutes} 分钟`}
               </p>
             </div>
@@ -128,7 +128,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="h-11 flex items-center justify-between px-4 md:px-5 shrink-0 relative z-30"
           style={{ background: 'rgba(250,250,247,0.8)', backdropFilter: 'blur(12px)' }}>
-          <div className="flex items-center gap-2 text-[13px]">
+          <div className="flex items-center gap-2 text-[14px]">
             {/* 移动端汉堡菜单 */}
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
@@ -141,7 +141,7 @@ function ClientLayoutInner({ children }: { children: React.ReactNode }) {
             <span style={{ color: '#1a1a1a', fontWeight: 600 }}>{pageTitle}</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] hidden sm:inline" style={{ color: '#a0a09e' }}>简体中文</span>
+            <span className="text-[12px] hidden sm:inline" style={{ color: '#a0a09e' }}>简体中文</span>
             <UserMenu />
           </div>
         </header>

@@ -19,9 +19,20 @@ export function TranslatePage() {
 
   const [sessionActive, setSessionActive] = useState(false);
   const [sourceLanguage, setSourceLanguage] = useState('en');
+  const [targetLanguage, setTargetLanguage] = useState('zh');
   const [deviceGroups, setDeviceGroups] = useState<DeviceGroup[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<number>(-1);  // -1 = auto
+  const [selectedDevice, setSelectedDevice] = useState<number>(-1);
   const [displayMode, setDisplayMode] = useState<'bilingual' | 'chinese_only'>('bilingual');
+
+  const LANGUAGES = [
+    { code: 'en', flag: '🇺🇸', label: 'English' },
+    { code: 'zh', flag: '🇨🇳', label: '中文' },
+    { code: 'ja', flag: '🇯🇵', label: '日本語' },
+    { code: 'ko', flag: '🇰🇷', label: '한국어' },
+    { code: 'fr', flag: '🇫🇷', label: 'Français' },
+    { code: 'de', flag: '🇩🇪', label: 'Deutsch' },
+    { code: 'es', flag: '🇪🇸', label: 'Español' },
+  ];
   const [fontSize, setFontSize] = useState(18);
   const [opacity, setOpacity] = useState(0.75);
   const [asrText, setAsrText] = useState('');
@@ -125,8 +136,8 @@ export function TranslatePage() {
   const handleStart = useCallback(() => {
     setSubtitles([]); setAsrText(''); setPartialTranslation('');
     if (!connected) connect();
-    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: 'zh', display_mode: displayMode, device_index: selectedDevice } });
-  }, [connected, connect, send, sourceLanguage, displayMode, selectedDevice]);
+    send({ type: 'start_session', config: { source_language: sourceLanguage, target_language: targetLanguage, display_mode: displayMode, device_index: selectedDevice } });
+  }, [connected, connect, send, sourceLanguage, targetLanguage, displayMode, selectedDevice]);
 
   const handleStop = useCallback(() => {
     send({ type: 'stop_session' }); setSessionActive(false);
@@ -160,26 +171,39 @@ export function TranslatePage() {
 
         {/* 设置行 */}
         {!sessionActive && (
-          <div className="flex gap-2 mb-3">
-            <select className={selectClass} value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}>
-              <option value="en">English→中文</option>
-              <option value="zh">中文→English</option>
-              <option value="ja">日本語→中文</option>
-              <option value="ko">한국어→中文</option>
-            </select>
-            <select className={selectClass} value={selectedDevice} onChange={(e) => setSelectedDevice(Number(e.target.value))}>
-              {deviceGroups.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.devices.map((d) => (
-                    <option key={d.index} value={d.index}>{d.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <select className={selectClass} value={displayMode} onChange={(e) => setDisplayMode(e.target.value as any)}>
-              <option value="bilingual">双语</option>
-              <option value="chinese_only">仅中文</option>
-            </select>
+          <div className="space-y-2 mb-3">
+            {/* 源语言→目标语言 */}
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <p className="text-[10px] text-gray-400 font-medium mb-1 ml-1 uppercase tracking-wider">源语言</p>
+                <select className={selectClass + ' w-full'} value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}>
+                  {LANGUAGES.map(l => (<option key={l.code} value={l.code}>{l.flag} {l.label}</option>))}
+                </select>
+              </div>
+              <div className="shrink-0 mb-0.5 w-8 h-10 rounded-xl bg-green-50 flex items-center justify-center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7cbd5b" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] text-gray-400 font-medium mb-1 ml-1 uppercase tracking-wider">目标语言</p>
+                <select className={selectClass + ' w-full'} value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}>
+                  {LANGUAGES.map(l => (<option key={l.code} value={l.code}>{l.flag} {l.label}</option>))}
+                </select>
+              </div>
+            </div>
+            {/* 设备+模式 */}
+            <div className="flex gap-2">
+              <select className={selectClass + ' flex-1'} value={selectedDevice} onChange={(e) => setSelectedDevice(Number(e.target.value))}>
+                {deviceGroups.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.devices.map((d) => (<option key={d.index} value={d.index}>🎤 {d.name}</option>))}
+                  </optgroup>
+                ))}
+              </select>
+              <select className={selectClass} value={displayMode} onChange={(e) => setDisplayMode(e.target.value as any)}>
+                <option value="bilingual">双语显示</option>
+                <option value="chinese_only">仅译文</option>
+              </select>
+            </div>
           </div>
         )}
 

@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem('simulagent_user');
     if (saved) {
       const u = JSON.parse(saved);
-      fetch(`${API}/api/v1/auth/me?token=${u.token}`)
+      fetch(`${API}/api/v1/auth/me`, { headers: { Authorization: `Bearer ${u.token}` } })
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data) setUser(data); else localStorage.removeItem('simulagent_user'); })
         .finally(() => setLoading(false));

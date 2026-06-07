@@ -43,3 +43,4 @@ data/vectors/*.db
 coverage/
 .pytest_cache/
 htmlcov/
+演示演讲稿.md

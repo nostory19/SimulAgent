@@ -2,21 +2,70 @@
 
 :root {
   --green: #7cbd5b;
-  --green-dark: #5a9a3a;
+  --green-soft: #e8f5e0;
+  --green-deep: #4a8a2e;
   --pink: #f0a0b0;
-  --pink-dark: #d47888;
-  --bg: #fafbfc;
+  --pink-soft: #fef0f3;
+  --pink-deep: #d47888;
+  --bg: #f7f8fa;
   --card: #ffffff;
-  --subtitle-bg: rgba(20, 20, 22, 0.88);
+  --card-hover: #fcfdfe;
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+  --border: #f0f1f3;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 20px;
+  --subtitle-bg: rgba(18, 18, 20, 0.9);
 }
 
 body {
   background: var(--bg);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* 自定义滚动条 */
-::-webkit-scrollbar { width: 5px; }
+/* 滚动条 */
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: #aaa; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 20px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* 卡片入场 */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(124, 189, 91, 0.25); }
+  50% { box-shadow: 0 0 0 8px rgba(124, 189, 91, 0); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.card-enter {
+  animation: cardIn 0.4s ease-out both;
+}
+.card-enter:nth-child(1) { animation-delay: 0ms; }
+.card-enter:nth-child(2) { animation-delay: 50ms; }
+.card-enter:nth-child(3) { animation-delay: 100ms; }
+.card-enter:nth-child(4) { animation-delay: 150ms; }
+.card-enter:nth-child(5) { animation-delay: 200ms; }
+
+.pulse-ring {
+  animation: pulse-ring 2s infinite;
+}
+
+.breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
